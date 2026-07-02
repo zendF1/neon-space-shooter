@@ -231,8 +231,12 @@ class GameManager extends ChangeNotifier {
     for (var entry in list.entries) {
       try {
         final rawImg = await _loadSprite(entry.value);
-        final processedImg = await _makeBackgroundTransparent(rawImg);
-        spriteImages[entry.key] = processedImg;
+        if (entry.key.startsWith('drone_boss')) {
+          spriteImages[entry.key] = rawImg;
+        } else {
+          final processedImg = await _makeBackgroundTransparent(rawImg);
+          spriteImages[entry.key] = processedImg;
+        }
       } catch (e) {
         debugPrint("Error loading sprite ${entry.key}: $e");
       }
