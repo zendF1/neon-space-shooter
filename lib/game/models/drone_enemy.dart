@@ -14,7 +14,7 @@ class DroneEnemy {
   bool isDestroyed;
   final DroneType type;
 
-  // For boss hover
+  // For trajectories
   double _timeElapsed = 0.0;
   final double initialY;
 
@@ -30,21 +30,54 @@ class DroneEnemy {
   })  : maxHealth = health,
         initialY = position.dy;
 
-  void update(double deltaTime, double screenWidth) {
+  void update(double deltaTime, double screenWidth, {double? spaceshipX}) {
     _timeElapsed += deltaTime;
 
     switch (type) {
       case DroneType.boss:
-        // Boss moves horizontally and hovers vertically using sine wave
+        // Boss moves side-to-side and performs occasional swoops towards the player
+        double swoopY = 0.0;
+        double cycle = _timeElapsed % 12.0; // 12 second loop
+        if (cycle > 7.0 && cycle < 11.0) {
+          // Swoop down for 4 seconds
+          double progress = (cycle - 7.0) / 4.0; // 0.0 to 1.0
+          swoopY = 130.0 * math.sin(progress * math.pi); // swoop max depth 130px
+        }
+
         position += Offset(velocity.dx * deltaTime, 0.0);
         position = Offset(
           position.dx,
-          initialY + 20.0 * math.sin(_timeElapsed * 1.5),
+          initialY + 25.0 * math.sin(_timeElapsed * 1.5) + swoopY,
         );
         break;
-      default:
-        // Regular drones drift horizontally and vertically
+
+      case DroneType.armored:
+        // Armored: fast diagonal bouncing within upper bounds (Y: 45 to 260)
         position += Offset(velocity.dx * deltaTime, velocity.dy * deltaTime);
+        if (position.dy < 45.0) {
+          position = Offset(position.dx, 45.0);
+          velocity = Offset(velocity.dx, velocity.dy.abs());
+        } else if (position.dy > 260.0) {
+          position = Offset(position.dx, 260.0);
+          velocity = Offset(velocity.dx, -velocity.dy.abs());
+        }
+        break;
+
+      case DroneType.explosive:
+        // Explosive: erratic wave movement
+        position += Offset(
+          velocity.dx * deltaTime,
+          (velocity.dy + 50.0 * math.sin(_timeElapsed * 5.0)) * deltaTime,
+        );
+        break;
+
+      case DroneType.normal:
+        // Normal: side-to-side with swooping curve
+        double horizontalSweep = 30.0 * math.sin(_timeElapsed * 2.5);
+        position += Offset(
+          (velocity.dx + horizontalSweep) * deltaTime,
+          velocity.dy * deltaTime,
+        );
         break;
     }
 

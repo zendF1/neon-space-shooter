@@ -1,6 +1,7 @@
 import 'models/spaceship.dart';
 import 'models/drone_enemy.dart';
 import 'models/laser_bullet.dart';
+import 'models/homing_missile.dart';
 import 'models/power_up.dart';
 import 'models/coin.dart';
 
@@ -9,6 +10,12 @@ class PhysicsEngine {
   static bool checkBulletEnemyCollision(LaserBullet bullet, DroneEnemy drone) {
     if (bullet.isDestroyed || drone.isDestroyed) return false;
     return bullet.rect.overlaps(drone.rect);
+  }
+
+  /// Checks collision between a Homing Missile and a Drone Enemy.
+  static bool checkMissileEnemyCollision(HomingMissile missile, DroneEnemy drone) {
+    if (missile.isDestroyed || drone.isDestroyed) return false;
+    return missile.rect.overlaps(drone.rect);
   }
 
   /// Checks collision between an enemy Laser Bullet and the Player's Spaceship.

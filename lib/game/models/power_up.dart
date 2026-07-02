@@ -15,7 +15,20 @@ class PowerUp {
     required this.type,
   });
 
-  void update(double deltaTime) {
+  void update(double deltaTime, {Offset? spaceshipPosition, int magnetLevel = 0}) {
+    if (magnetLevel > 0 && spaceshipPosition != null) {
+      Offset direction = spaceshipPosition - position;
+      double distance = direction.distance;
+      double magnetRadius = magnetLevel * 75.0;
+      
+      if (distance < magnetRadius) {
+        double pullSpeed = 200.0 + (magnetLevel * 60.0);
+        position += Offset(direction.dx / distance, direction.dy / distance) * pullSpeed * deltaTime;
+        return;
+      }
+    }
+    
+    // Normal falling
     position += Offset(0, speed * deltaTime);
   }
 

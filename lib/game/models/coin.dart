@@ -11,10 +11,23 @@ class Coin {
     required this.position,
   });
 
-  void update(double deltaTime) {
-    position += Offset(0, speed * deltaTime);
-    // Rotate 2.5 radians per second
+  void update(double deltaTime, {Offset? spaceshipPosition, int magnetLevel = 0}) {
     rotationAngle += 2.5 * deltaTime;
+    
+    if (magnetLevel > 0 && spaceshipPosition != null) {
+      Offset direction = spaceshipPosition - position;
+      double distance = direction.distance;
+      double magnetRadius = magnetLevel * 75.0; // Lv 1: 75px, Lv 2: 150px, Lv 3: 225px
+      
+      if (distance < magnetRadius) {
+        double pullSpeed = 220.0 + (magnetLevel * 60.0);
+        position += Offset(direction.dx / distance, direction.dy / distance) * pullSpeed * deltaTime;
+        return;
+      }
+    }
+    
+    // Normal falling
+    position += Offset(0, speed * deltaTime);
   }
 
   Color get color => Colors.amberAccent;

@@ -67,8 +67,8 @@ class _GameScreenState extends State<GameScreen>
                   onTapDown: (_) {
                     _manager.shootLasers();
                   },
-                  onHorizontalDragUpdate: (details) {
-                    _manager.handlePaddleDrag(details.delta.dx);
+                  onPanUpdate: (details) {
+                    _manager.handleSpaceshipDrag(details.delta.dx, details.delta.dy);
                   },
                   child: CustomPaint(
                     size: Size(constraints.maxWidth, constraints.maxHeight),

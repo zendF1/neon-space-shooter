@@ -484,6 +484,67 @@ class LevelManager {
           ));
         }
     }
+
+    // Programmatically triple the density of regular levels, and add guards to Boss levels
+    if (level % 5 != 0) { // Not a boss level
+      List<DroneEnemy> extraDrones = [];
+      for (var drone in drones) {
+        // Drone 2: shifted slightly down-left
+        extraDrones.add(DroneEnemy(
+          position: Offset(drone.position.dx - 22.0, drone.position.dy + 38.0),
+          type: drone.type,
+          velocity: Offset(-drone.velocity.dx * 1.1, drone.velocity.dy),
+          health: drone.health,
+          shootCooldown: drone.shootCooldown * 0.85,
+        ));
+        
+        // Drone 3: shifted slightly down-right
+        extraDrones.add(DroneEnemy(
+          position: Offset(drone.position.dx + 22.0, drone.position.dy + 76.0),
+          type: drone.type == DroneType.normal ? DroneType.armored : DroneType.normal,
+          velocity: Offset(drone.velocity.dx * 0.9, drone.velocity.dy),
+          health: drone.health,
+          shootCooldown: drone.shootCooldown * 1.15,
+        ));
+      }
+      drones.addAll(extraDrones);
+    } else {
+      // Boss levels: Add extra guards flanking the Boss
+      List<DroneEnemy> extraGuards = [];
+      for (var drone in drones) {
+        if (drone.type == DroneType.boss) {
+          extraGuards.add(DroneEnemy(
+            position: Offset(drone.position.dx - 80.0, drone.position.dy + 50.0),
+            type: DroneType.armored,
+            velocity: Offset(50.0, 0.0),
+            health: 3,
+            shootCooldown: 2.2,
+          ));
+          extraGuards.add(DroneEnemy(
+            position: Offset(drone.position.dx + 80.0, drone.position.dy + 50.0),
+            type: DroneType.armored,
+            velocity: Offset(-50.0, 0.0),
+            health: 3,
+            shootCooldown: 2.2,
+          ));
+          extraGuards.add(DroneEnemy(
+            position: Offset(drone.position.dx - 140.0, drone.position.dy + 25.0),
+            type: DroneType.explosive,
+            velocity: Offset(60.0, 0.0),
+            health: 1,
+            shootCooldown: 2.8,
+          ));
+          extraGuards.add(DroneEnemy(
+            position: Offset(drone.position.dx + 140.0, drone.position.dy + 25.0),
+            type: DroneType.explosive,
+            velocity: Offset(-60.0, 0.0),
+            health: 1,
+            shootCooldown: 2.8,
+          ));
+        }
+      }
+      drones.addAll(extraGuards);
+    }
     
     return drones;
   }

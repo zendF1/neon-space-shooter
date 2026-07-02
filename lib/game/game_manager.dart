@@ -10,6 +10,7 @@ import 'models/drone_enemy.dart';
 import 'models/power_up.dart';
 import 'models/particle.dart';
 import 'models/coin.dart';
+import 'models/homing_missile.dart';
 import 'physics.dart';
 import 'level_manager.dart';
 import 'audio_controller.dart';
@@ -82,6 +83,16 @@ class GameManager extends ChangeNotifier {
   double slowMotionTimer = 0.0;
   double playerShootCooldown = 0.0;
 
+  // Upgrades
+  int mainCannonLevel = 1;
+  int homingMissileLevel = 0;
+  int shieldMaxLevel = 1;
+  int magnetLevel = 0;
+
+  // Homing Missiles
+  final List<HomingMissile> missiles = [];
+  double missileCooldown = 0.0;
+
   // Cosmetics & Shop
   String equippedSpaceship = 'paddle_pink';
   String equippedLaser = 'ball_white';
@@ -124,7 +135,7 @@ class GameManager extends ChangeNotifier {
   }
 
   void handlePaddleDrag(double deltaX) {
-    handleSpaceshipDrag(deltaX);
+    handleSpaceshipDrag(deltaX, 0.0);
   }
 
   void initializeScreen(double width, double height) {
@@ -236,6 +247,12 @@ class GameManager extends ChangeNotifier {
       spaceship.glowColor = const Color(0x99FF007F);
       spaceship.skinId = 'ship_pink';
     }
+
+    // Apply persistent upgrades to spaceship
+    spaceship.mainCannonLevel = mainCannonLevel;
+    spaceship.homingMissileLevel = homingMissileLevel;
+    spaceship.shieldMaxLevel = shieldMaxLevel;
+    spaceship.magnetLevel = magnetLevel;
   }
 
   // --- Shop Business Logic ---
@@ -245,6 +262,35 @@ class GameManager extends ChangeNotifier {
     if (coins >= cost && !isUnlocked(id)) {
       coins -= cost;
       unlockedItems.add(id);
+      saveGameStats();
+      audio.playSFX('buff');
+      notifyListeners();
+      return true;
+    }
+    return false;
+  }
+
+  bool buyUpgrade(String id, int cost) {
+    if (coins >= cost) {
+      if (id == 'main_cannon' && mainCannonLevel < 4) {
+        coins -= cost;
+        mainCannonLevel++;
+        spaceship.mainCannonLevel = mainCannonLevel;
+      } else if (id == 'homing_missile' && homingMissileLevel < 3) {
+        coins -= cost;
+        homingMissileLevel++;
+        spaceship.homingMissileLevel = homingMissileLevel;
+      } else if (id == 'shield_max' && shieldMaxLevel < 3) {
+        coins -= cost;
+        shieldMaxLevel++;
+        spaceship.shieldMaxLevel = shieldMaxLevel;
+      } else if (id == 'magnet' && magnetLevel < 3) {
+        coins -= cost;
+        magnetLevel++;
+        spaceship.magnetLevel = magnetLevel;
+      } else {
+        return false;
+      }
       saveGameStats();
       audio.playSFX('buff');
       notifyListeners();
@@ -301,10 +347,13 @@ class GameManager extends ChangeNotifier {
     drones.clear();
     powerUps.clear();
     floatingTexts.clear();
+    missiles.clear();
+    missileCooldown = 0.0;
 
     spaceship.positionX = screenWidth / 2;
     spaceship.positionY = screenHeight - 80.0;
     spaceship.shieldActive = false;
+    spaceship.shieldHealth = 0;
     spaceship.tripleShotTimer = 0.0;
     spaceship.rapidFireTimer = 0.0;
     
@@ -449,9 +498,9 @@ class GameManager extends ChangeNotifier {
     notifyListeners();
   }
 
-  void handleSpaceshipDrag(double deltaX) {
+  void handleSpaceshipDrag(double deltaX, double deltaY) {
     if (state != GamePlayState.playing) return;
-    spaceship.move(deltaX, screenWidth);
+    spaceship.move(deltaX, deltaY, screenWidth, screenHeight);
   }
 
   // --- Main Update Loop ---
@@ -510,11 +559,37 @@ class GameManager extends ChangeNotifier {
       playerShootCooldown = spaceship.rapidFireTimer > 0 ? 0.16 : 0.32;
     }
 
+    // 6b. Homing Missile firing
+    if (spaceship.homingMissileLevel > 0) {
+      if (missileCooldown > 0) {
+        missileCooldown -= deltaTime;
+      }
+      if (missileCooldown <= 0) {
+        missiles.add(HomingMissile(
+          position: Offset(spaceship.positionX - 16.0, spaceship.positionY),
+          velocity: const Offset(-45.0, -180.0),
+        ));
+        missiles.add(HomingMissile(
+          position: Offset(spaceship.positionX + 16.0, spaceship.positionY),
+          velocity: const Offset(45.0, -180.0),
+        ));
+        missileCooldown = 2.2 - (spaceship.homingMissileLevel * 0.4); // Lv 1: 1.8s, Lv 2: 1.4s, Lv 3: 1.0s
+      }
+    }
+
     // 7. Update player bullets
     for (int i = laserBullets.length - 1; i >= 0; i--) {
       laserBullets[i].update(simDeltaTime);
       if (laserBullets[i].position.dy < -20.0 || laserBullets[i].isDestroyed) {
         laserBullets.removeAt(i);
+      }
+    }
+
+    // 7b. Update homing missiles
+    for (int i = missiles.length - 1; i >= 0; i--) {
+      missiles[i].update(simDeltaTime, drones);
+      if (missiles[i].position.dy < -30.0 || missiles[i].isDestroyed) {
+        missiles.removeAt(i);
       }
     }
 
@@ -528,13 +603,13 @@ class GameManager extends ChangeNotifier {
 
     // 9. Update falling items
     for (int i = fallingCoins.length - 1; i >= 0; i--) {
-      fallingCoins[i].update(simDeltaTime);
+      fallingCoins[i].update(simDeltaTime, spaceshipPosition: Offset(spaceship.positionX, spaceship.positionY), magnetLevel: spaceship.magnetLevel);
       if (fallingCoins[i].position.dy > screenHeight + 20.0 || fallingCoins[i].isCollected) {
         fallingCoins.removeAt(i);
       }
     }
     for (int i = powerUps.length - 1; i >= 0; i--) {
-      powerUps[i].update(simDeltaTime);
+      powerUps[i].update(simDeltaTime, spaceshipPosition: Offset(spaceship.positionX, spaceship.positionY), magnetLevel: spaceship.magnetLevel);
       if (powerUps[i].position.dy > screenHeight + 20.0 || powerUps[i].isCollected) {
         powerUps.removeAt(i);
       }
@@ -614,39 +689,95 @@ class GameManager extends ChangeNotifier {
     Color laserColor = getLaserColor();
     Color laserGlow = getLaserGlowColor();
 
-    if (spaceship.tripleShotTimer > 0) {
-      // 3 Lasers (Center, Left tilt, Right tilt)
-      laserBullets.add(LaserBullet(
-        position: Offset(spaceship.positionX, spaceship.positionY - 15.0),
-        velocity: const Offset(0.0, -480.0),
+    int cannonLvl = spaceship.mainCannonLevel;
+    List<LaserBullet> baseBullets = [];
+
+    switch (cannonLvl) {
+      case 2:
+        // Dual Lasers
+        baseBullets.add(LaserBullet(
+          position: Offset(spaceship.positionX - 8.0, spaceship.positionY - 15.0),
+          velocity: const Offset(0.0, -480.0),
+          isEnemy: false,
+          color: laserColor,
+          glowColor: laserGlow,
+        ));
+        baseBullets.add(LaserBullet(
+          position: Offset(spaceship.positionX + 8.0, spaceship.positionY - 15.0),
+          velocity: const Offset(0.0, -480.0),
+          isEnemy: false,
+          color: laserColor,
+          glowColor: laserGlow,
+        ));
+        break;
+      case 3:
+        // Triple Lasers
+        baseBullets.add(LaserBullet(
+          position: Offset(spaceship.positionX, spaceship.positionY - 15.0),
+          velocity: const Offset(0.0, -480.0),
+          isEnemy: false,
+          color: laserColor,
+          glowColor: laserGlow,
+        ));
+        baseBullets.add(LaserBullet(
+          position: Offset(spaceship.positionX - 10.0, spaceship.positionY - 10.0),
+          velocity: const Offset(-60.0, -460.0),
+          isEnemy: false,
+          color: laserColor,
+          glowColor: laserGlow,
+        ));
+        baseBullets.add(LaserBullet(
+          position: Offset(spaceship.positionX + 10.0, spaceship.positionY - 10.0),
+          velocity: const Offset(60.0, -460.0),
+          isEnemy: false,
+          color: laserColor,
+          glowColor: laserGlow,
+        ));
+        break;
+      case 4:
+        // Wave Beam! (width = 18.0, height = 12.0)
+        baseBullets.add(LaserBullet(
+          position: Offset(spaceship.positionX, spaceship.positionY - 15.0),
+          velocity: const Offset(0.0, -500.0),
+          isEnemy: false,
+          width: 18.0,
+          height: 12.0,
+          color: laserColor,
+          glowColor: laserGlow,
+        ));
+        break;
+      case 1:
+      default:
+        // Single Laser
+        baseBullets.add(LaserBullet(
+          position: Offset(spaceship.positionX, spaceship.positionY - 15.0),
+          velocity: const Offset(0.0, -480.0),
+          isEnemy: false,
+          color: laserColor,
+          glowColor: laserGlow,
+        ));
+        break;
+    }
+
+    // Apply Triple Shot temporary powerup: add 2 angled lasers on the sides if not already Level 3
+    if (spaceship.tripleShotTimer > 0 && cannonLvl != 3) {
+      baseBullets.add(LaserBullet(
+        position: Offset(spaceship.positionX - 14.0, spaceship.positionY - 8.0),
+        velocity: const Offset(-110.0, -450.0),
         isEnemy: false,
         color: laserColor,
         glowColor: laserGlow,
       ));
-      laserBullets.add(LaserBullet(
-        position: Offset(spaceship.positionX - 12.0, spaceship.positionY - 10.0),
-        velocity: const Offset(-80.0, -460.0),
-        isEnemy: false,
-        color: laserColor,
-        glowColor: laserGlow,
-      ));
-      laserBullets.add(LaserBullet(
-        position: Offset(spaceship.positionX + 12.0, spaceship.positionY - 10.0),
-        velocity: const Offset(80.0, -460.0),
-        isEnemy: false,
-        color: laserColor,
-        glowColor: laserGlow,
-      ));
-    } else {
-      // Single laser
-      laserBullets.add(LaserBullet(
-        position: Offset(spaceship.positionX, spaceship.positionY - 15.0),
-        velocity: const Offset(0.0, -480.0),
+      baseBullets.add(LaserBullet(
+        position: Offset(spaceship.positionX + 14.0, spaceship.positionY - 8.0),
+        velocity: const Offset(110.0, -450.0),
         isEnemy: false,
         color: laserColor,
         glowColor: laserGlow,
       ));
     }
+
+    laserBullets.addAll(baseBullets);
     audio.playSFX('hit');
   }
 
@@ -697,7 +828,8 @@ class GameManager extends ChangeNotifier {
       for (var drone in drones) {
         if (PhysicsEngine.checkBulletEnemyCollision(bullet, drone)) {
           bullet.isDestroyed = true;
-          drone.health--;
+          int dmg = bullet.width > 10.0 ? 2 : 1;
+          drone.health -= dmg;
           
           particleSystem.spawnExplosion(bullet.position, drone.color, count: 6);
           audio.playSFX('hit');
@@ -710,7 +842,26 @@ class GameManager extends ChangeNotifier {
         }
       }
     }
-    // Cleanup destroyed drones
+    drones.removeWhere((d) => d.isDestroyed);
+
+    // 1b. Homing Missiles vs Drones
+    for (var missile in missiles) {
+      for (var drone in drones) {
+        if (PhysicsEngine.checkMissileEnemyCollision(missile, drone)) {
+          missile.isDestroyed = true;
+          drone.health -= 2; // Homing missiles deal double damage!
+          
+          particleSystem.spawnExplosion(missile.position, drone.color, count: 8);
+          audio.playSFX('hit');
+
+          if (drone.health <= 0) {
+            drone.isDestroyed = true;
+            _destroyDrone(drone);
+          }
+          break;
+        }
+      }
+    }
     drones.removeWhere((d) => d.isDestroyed);
 
     // 2. Enemy Lasers vs Player
@@ -828,13 +979,23 @@ class GameManager extends ChangeNotifier {
 
   void _hitPlayer() {
     if (spaceship.shieldActive) {
-      spaceship.shieldActive = false;
-      audio.playSFX('buff'); // shield offline beep
-      floatingTexts.add(FloatingText(
-        text: "SHIELD DOWN!",
-        position: Offset(spaceship.positionX, spaceship.positionY - 30),
-        color: Colors.blueAccent,
-      ));
+      spaceship.shieldHealth--;
+      audio.playSFX('buff');
+      
+      if (spaceship.shieldHealth <= 0) {
+        spaceship.shieldActive = false;
+        floatingTexts.add(FloatingText(
+          text: "SHIELD DOWN!",
+          position: Offset(spaceship.positionX, spaceship.positionY - 30),
+          color: Colors.blueAccent,
+        ));
+      } else {
+        floatingTexts.add(FloatingText(
+          text: "SHIELD: ${spaceship.shieldHealth}/${spaceship.shieldMaxLevel}",
+          position: Offset(spaceship.positionX, spaceship.positionY - 30),
+          color: Colors.lightBlueAccent,
+        ));
+      }
       return;
     }
 
@@ -866,6 +1027,7 @@ class GameManager extends ChangeNotifier {
         break;
       case PowerUpType.shield:
         spaceship.shieldActive = true;
+        spaceship.shieldHealth = spaceship.shieldMaxLevel;
         text = "SHIELD ACTIVATED!";
         break;
       case PowerUpType.slowMotion:

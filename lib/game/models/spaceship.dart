@@ -13,6 +13,15 @@ class Spaceship {
   double tripleShotTimer = 0.0;
   double rapidFireTimer = 0.0;
 
+  // Upgrade levels
+  int mainCannonLevel = 1;
+  int homingMissileLevel = 0;
+  int shieldMaxLevel = 1;
+  int magnetLevel = 0;
+
+  // Active shield health
+  int shieldHealth = 0;
+
   // Cosmetic skin details
   String skinId;
 
@@ -26,15 +35,27 @@ class Spaceship {
     this.skinId = 'ship_pink',
   });
 
-  void move(double deltaX, double screenWidth) {
+  void move(double deltaX, double deltaY, double screenWidth, double screenHeight) {
     positionX += deltaX;
+    positionY += deltaY;
     
     // Keep spaceship within screen boundaries with margin
     double halfWidth = width / 2;
+    double halfHeight = height / 2;
+    
     if (positionX - halfWidth < 12.0) {
       positionX = 12.0 + halfWidth;
     } else if (positionX + halfWidth > screenWidth - 12.0) {
       positionX = screenWidth - 12.0 - halfWidth;
+    }
+
+    // Limit Y-movement: player can move in the lower 60% of the screen
+    double minY = screenHeight * 0.40;
+    double maxY = screenHeight - 40.0;
+    if (positionY - halfHeight < minY) {
+      positionY = minY + halfHeight;
+    } else if (positionY + halfHeight > maxY) {
+      positionY = maxY - halfHeight;
     }
   }
 

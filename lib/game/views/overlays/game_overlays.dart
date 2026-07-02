@@ -734,9 +734,9 @@ class ShopOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     return _FrostedContainer(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20.0),
-      width: 320.0,
+      width: 330.0,
       child: DefaultTabController(
-        length: 2,
+        length: 3,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -786,15 +786,17 @@ class ShopOverlay extends StatelessWidget {
               indicatorColor: Colors.cyanAccent,
               labelColor: Colors.cyanAccent,
               unselectedLabelColor: Colors.white60,
+              labelPadding: EdgeInsets.symmetric(horizontal: 4.0),
               tabs: [
-                Tab(text: "SPACESHIPS"),
-                Tab(text: "LASER COLORS"),
+                Tab(text: "SHIPS"),
+                Tab(text: "LASERS"),
+                Tab(text: "UPGRADES"),
               ],
             ),
             const SizedBox(height: 16.0),
             // Tab contents
             SizedBox(
-              height: 250.0,
+              height: 270.0,
               child: TabBarView(
                 children: [
                   // Tab 1: Spaceships
@@ -882,11 +884,192 @@ class ShopOverlay extends StatelessWidget {
                       );
                     },
                   ),
+                  // Tab 3: Upgrades
+                  ListenableBuilder(
+                    listenable: manager,
+                    builder: (context, child) {
+                      return ListView(
+                        shrinkWrap: true,
+                        children: [
+                          _buildUpgradeItem(
+                            id: 'main_cannon',
+                            name: "Main Cannon",
+                            desc: "Upgrade cannon firing rate and patterns.",
+                            currentLvl: manager.mainCannonLevel,
+                            maxLvl: 4,
+                            lvlDescs: [
+                              "Level 1: Single Cannon",
+                              "Level 2: Dual Cannons (+100% fire rate)",
+                              "Level 3: Triple Angle Spreads",
+                              "Level 4: Wide Wave Beam (High Damage)"
+                            ],
+                            costs: [0, 150, 300, 500],
+                            color: Colors.cyanAccent,
+                          ),
+                          _buildUpgradeItem(
+                            id: 'homing_missile',
+                            name: "Homing Missiles",
+                            desc: "Install automatic target-seeking wing missiles.",
+                            currentLvl: manager.homingMissileLevel,
+                            maxLvl: 3,
+                            lvlDescs: [
+                              "Locked",
+                              "Level 1: Auto launches 2 seek rockets",
+                              "Level 2: Fast Missile Reload rate",
+                              "Level 3: Maximum fire power rocket barrage"
+                            ],
+                            costs: [200, 400, 700],
+                            color: Colors.amberAccent,
+                          ),
+                          _buildUpgradeItem(
+                            id: 'shield_max',
+                            name: "Shield Integrity",
+                            desc: "Strengthen active shields to absorb more hits.",
+                            currentLvl: manager.shieldMaxLevel,
+                            maxLvl: 3,
+                            lvlDescs: [
+                              "Locked",
+                              "Level 1: Absorbs 1 hit",
+                              "Level 2: Absorbs 2 hits",
+                              "Level 3: Absorbs 3 hit points max"
+                            ],
+                            costs: [0, 200, 450],
+                            color: Colors.blueAccent,
+                          ),
+                          _buildUpgradeItem(
+                            id: 'magnet',
+                            name: "Coin Magnet",
+                            desc: "Pulls coins and power-ups from a distance.",
+                            currentLvl: manager.magnetLevel,
+                            maxLvl: 3,
+                            lvlDescs: [
+                              "Locked",
+                              "Level 1: Subtle magnetic attraction",
+                              "Level 2: High pull radius",
+                              "Level 3: Max screen pull coverage"
+                            ],
+                            costs: [150, 300, 550],
+                            color: Colors.greenAccent,
+                          ),
+                        ],
+                      );
+                    },
+                  ),
                 ],
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildUpgradeItem({
+    required String id,
+    required String name,
+    required String desc,
+    required int currentLvl,
+    required int maxLvl,
+    required List<String> lvlDescs,
+    required List<int> costs,
+    required Color color,
+  }) {
+    bool isMax = currentLvl >= maxLvl;
+    int nextCost = isMax ? 0 : costs[currentLvl];
+    String currentLvlDesc = lvlDescs[currentLvl.clamp(0, lvlDescs.length - 1)];
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12.0),
+      padding: const EdgeInsets.all(10.0),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.04),
+        border: Border.all(color: color.withOpacity(0.2), width: 1.0),
+        borderRadius: BorderRadius.circular(8.0),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                name,
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14.0,
+                ),
+              ),
+              Text(
+                isMax ? "MAXED" : "LVL $currentLvl / $maxLvl",
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 12.0,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4.0),
+          Text(
+            desc,
+            style: const TextStyle(color: Colors.white70, fontSize: 11.0),
+          ),
+          const SizedBox(height: 4.0),
+          Text(
+            currentLvlDesc,
+            style: TextStyle(color: color.withOpacity(0.8), fontSize: 11.0, fontStyle: FontStyle.italic),
+          ),
+          const SizedBox(height: 8.0),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              if (!isMax)
+                Row(
+                  children: [
+                    const Text("👛 ", style: TextStyle(fontSize: 12.0)),
+                    Text(
+                      "$nextCost Coins",
+                      style: const TextStyle(color: Colors.amberAccent, fontSize: 12.0, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                )
+              else
+                const SizedBox(),
+              GestureDetector(
+                onTap: isMax
+                    ? null
+                    : () {
+                        manager.buyUpgrade(id, nextCost);
+                      },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 6.0),
+                  decoration: BoxDecoration(
+                    color: isMax
+                        ? Colors.white10
+                        : (manager.coins >= nextCost ? color.withOpacity(0.2) : Colors.white10),
+                    border: Border.all(
+                      color: isMax
+                          ? Colors.white10
+                          : (manager.coins >= nextCost ? color : Colors.white10),
+                      width: 1.0,
+                    ),
+                    borderRadius: BorderRadius.circular(4.0),
+                  ),
+                  child: Text(
+                    isMax ? "MAXED" : "UPGRADE",
+                    style: TextStyle(
+                      color: isMax
+                          ? Colors.white30
+                          : (manager.coins >= nextCost ? Colors.white : Colors.white60),
+                      fontSize: 11.0,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -901,58 +1084,39 @@ class ShopOverlay extends StatelessWidget {
     required bool isPaddle,
   }) {
     bool unlocked = manager.isUnlocked(id);
-    bool equipped = (category == 'paddle' && manager.equippedPaddle == id) ||
-                    (category == 'ball' && manager.equippedBall == id);
+    bool equipped = isPaddle ? (manager.equippedSpaceship == id) : (manager.equippedLaser == id);
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 10.0),
-      padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 8.0),
+      margin: const EdgeInsets.only(bottom: 12.0),
+      padding: const EdgeInsets.all(10.0),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.03),
         borderRadius: BorderRadius.circular(10.0),
         border: Border.all(
-          color: equipped ? color.withOpacity(0.4) : Colors.white.withOpacity(0.06),
+          color: equipped ? color.withOpacity(0.5) : Colors.white.withOpacity(0.05),
           width: equipped ? 1.5 : 1.0,
         ),
       ),
       child: Row(
         children: [
-          // Graphic Preview box
+          // Skin color indicator box
           Container(
-            width: 44,
-            height: 44,
+            width: 32.0,
+            height: 32.0,
             decoration: BoxDecoration(
-              color: Colors.black26,
-              borderRadius: BorderRadius.circular(6.0),
-              border: Border.all(color: Colors.white.withOpacity(0.05)),
+              color: color.withOpacity(0.2),
+              shape: BoxShape.circle,
+              border: Border.all(color: color, width: 2.0),
             ),
             child: Center(
-              child: isPaddle
-                  ? Container(
-                      width: 28,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: color,
-                        borderRadius: BorderRadius.circular(3.0),
-                        boxShadow: [
-                          BoxShadow(color: color.withOpacity(0.5), blurRadius: 4.0),
-                        ],
-                      ),
-                    )
-                  : Container(
-                      width: 10,
-                      height: 10,
-                      decoration: BoxDecoration(
-                        color: color,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(color: color.withOpacity(0.6), blurRadius: 5.0),
-                        ],
-                      ),
-                    ),
+              child: Icon(
+                isPaddle ? Icons.airplay : Icons.bolt,
+                color: color,
+                size: 16.0,
+              ),
             ),
           ),
-          const SizedBox(width: 10.0),
+          const SizedBox(width: 12.0),
           // Info descriptions
           Expanded(
             child: Column(
@@ -960,8 +1124,8 @@ class ShopOverlay extends StatelessWidget {
               children: [
                 Text(
                   name,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: color,
                     fontSize: 13.0,
                     fontWeight: FontWeight.bold,
                   ),

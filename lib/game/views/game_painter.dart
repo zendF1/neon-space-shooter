@@ -32,6 +32,9 @@ class GamePainter extends CustomPainter {
     // 6. Laser bullets (player and enemy)
     _drawLasers(canvas);
 
+    // 6b. Homing missiles
+    _drawHomingMissiles(canvas);
+
     // 7. Drones & Bosses
     _drawDrones(canvas);
 
@@ -201,41 +204,95 @@ class GamePainter extends CustomPainter {
   }
 
   void _drawLasers(Canvas canvas) {
-    final Paint laserPaint = Paint()
-      ..style = PaintingStyle.fill;
-    final Paint glowPaint = Paint()
-      ..style = PaintingStyle.fill;
-
     // Player bullets
     for (var laser in manager.laserBullets) {
-      glowPaint.color = laser.glowColor;
-      glowPaint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 6.0);
-      canvas.drawRect(laser.rect, glowPaint);
+      if (manager.spritesLoaded && manager.spriteImages.containsKey('bullet_player')) {
+        final ui.Image? img = manager.spriteImages['bullet_player'];
+        if (img != null) {
+          canvas.drawImageRect(
+            img,
+            Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()),
+            laser.rect,
+            Paint()..blendMode = BlendMode.screen,
+          );
+        }
+      } else {
+        final Paint laserPaint = Paint()..style = PaintingStyle.fill..color = laser.color;
+        final Paint glowPaint = Paint()..style = PaintingStyle.fill..color = laser.glowColor..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6.0);
+        canvas.drawRect(laser.rect, glowPaint);
+        canvas.drawRect(laser.rect, laserPaint);
 
-      laserPaint.color = laser.color;
-      canvas.drawRect(laser.rect, laserPaint);
-
-      // Core white brightness
-      canvas.drawRect(
-        Rect.fromLTWH(laser.rect.left + 1, laser.rect.top, laser.rect.width - 2, laser.rect.height),
-        Paint()..color = Colors.white..style = PaintingStyle.fill,
-      );
+        // Core white brightness
+        canvas.drawRect(
+          Rect.fromLTWH(laser.rect.left + 1, laser.rect.top, laser.rect.width - 2, laser.rect.height),
+          Paint()..color = Colors.white..style = PaintingStyle.fill,
+        );
+      }
     }
 
     // Enemy bullets
     for (var laser in manager.enemyLasers) {
-      glowPaint.color = laser.glowColor;
-      glowPaint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 6.0);
-      canvas.drawRect(laser.rect, glowPaint);
+      if (manager.spritesLoaded && manager.spriteImages.containsKey('bullet_enemy')) {
+        final ui.Image? img = manager.spriteImages['bullet_enemy'];
+        if (img != null) {
+          canvas.drawImageRect(
+            img,
+            Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()),
+            laser.rect,
+            Paint()..blendMode = BlendMode.screen,
+          );
+        }
+      } else {
+        final Paint laserPaint = Paint()..style = PaintingStyle.fill..color = laser.color;
+        final Paint glowPaint = Paint()..style = PaintingStyle.fill..color = laser.glowColor..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6.0);
+        canvas.drawRect(laser.rect, glowPaint);
+        canvas.drawRect(laser.rect, laserPaint);
 
-      laserPaint.color = laser.color;
-      canvas.drawRect(laser.rect, laserPaint);
+        // Core brightness
+        canvas.drawRect(
+          Rect.fromLTWH(laser.rect.left + 1, laser.rect.top, laser.rect.width - 2, laser.rect.height),
+          Paint()..color = Colors.white..style = PaintingStyle.fill,
+        );
+      }
+    }
+  }
 
-      // Core brightness
-      canvas.drawRect(
-        Rect.fromLTWH(laser.rect.left + 1, laser.rect.top, laser.rect.width - 2, laser.rect.height),
-        Paint()..color = Colors.white..style = PaintingStyle.fill,
-      );
+  void _drawHomingMissiles(Canvas canvas) {
+    for (var missile in manager.missiles) {
+      if (missile.isDestroyed) continue;
+
+      Offset pos = missile.position;
+      Rect r = missile.rect;
+
+      if (manager.spritesLoaded && manager.spriteImages.containsKey('missile')) {
+        final ui.Image? img = manager.spriteImages['missile'];
+        if (img != null) {
+          canvas.save();
+          canvas.translate(pos.dx, pos.dy);
+          // Rotate missile according to its movement direction
+          double angle = math.atan2(missile.velocity.dy, missile.velocity.dx) + math.pi / 2;
+          canvas.rotate(angle);
+          
+          canvas.drawImageRect(
+            img,
+            Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()),
+            Rect.fromCenter(center: Offset.zero, width: r.width * 2.8, height: r.height * 1.5),
+            Paint()..blendMode = BlendMode.screen,
+          );
+          canvas.restore();
+        }
+      } else {
+        final Paint glowPaint = Paint()
+          ..color = Colors.amberAccent.withOpacity(0.6)
+          ..style = PaintingStyle.fill
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5.0);
+        canvas.drawRect(r, glowPaint);
+
+        final Paint missilePaint = Paint()
+          ..color = Colors.amberAccent
+          ..style = PaintingStyle.fill;
+        canvas.drawRect(r, missilePaint);
+      }
     }
   }
 
@@ -402,22 +459,33 @@ class GamePainter extends CustomPainter {
       Offset pos = coin.position;
       double r = coin.radius;
 
-      // Pulsing and rotating diamond shape
       canvas.save();
       canvas.translate(pos.dx, pos.dy);
       canvas.rotate(coin.rotationAngle);
 
-      final Paint glowPaint = Paint()
-        ..color = coin.glowColor
-        ..style = PaintingStyle.fill
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6.0);
-      canvas.drawRect(Rect.fromCenter(center: Offset.zero, width: r * 1.5, height: r * 1.5), glowPaint);
+      if (manager.spritesLoaded && manager.spriteImages.containsKey('coin')) {
+        final ui.Image? img = manager.spriteImages['coin'];
+        if (img != null) {
+          canvas.drawImageRect(
+            img,
+            Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()),
+            Rect.fromCenter(center: Offset.zero, width: r * 2.8, height: r * 2.8),
+            Paint()..blendMode = BlendMode.screen,
+          );
+        }
+      } else {
+        final Paint glowPaint = Paint()
+          ..color = coin.glowColor
+          ..style = PaintingStyle.fill
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6.0);
+        canvas.drawRect(Rect.fromCenter(center: Offset.zero, width: r * 1.5, height: r * 1.5), glowPaint);
 
-      final Paint borderPaint = Paint()
-        ..color = coin.color
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5;
-      canvas.drawRect(Rect.fromCenter(center: Offset.zero, width: r * 1.4, height: r * 1.4), borderPaint);
+        final Paint borderPaint = Paint()
+          ..color = coin.color
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.5;
+        canvas.drawRect(Rect.fromCenter(center: Offset.zero, width: r * 1.4, height: r * 1.4), borderPaint);
+      }
 
       canvas.restore();
     }
