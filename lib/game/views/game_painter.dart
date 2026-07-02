@@ -209,8 +209,8 @@ class GamePainter extends CustomPainter {
       if (manager.spritesLoaded && manager.spriteImages.containsKey('bullet_player')) {
         final ui.Image? img = manager.spriteImages['bullet_player'];
         if (img != null) {
-          double drawW = laser.width < 10.0 ? 12.0 : laser.width;
-          double drawH = laser.height;
+          double drawW = laser.width < 10.0 ? 32.0 : laser.width * 2.6;
+          double drawH = laser.height * 2.4;
           canvas.drawImageRect(
             img,
             Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()),
@@ -241,8 +241,8 @@ class GamePainter extends CustomPainter {
       if (manager.spritesLoaded && manager.spriteImages.containsKey('bullet_enemy')) {
         final ui.Image? img = manager.spriteImages['bullet_enemy'];
         if (img != null) {
-          double drawW = laser.width < 10.0 ? 12.0 : laser.width;
-          double drawH = laser.height;
+          double drawW = laser.width < 10.0 ? 28.0 : laser.width * 2.4;
+          double drawH = laser.height * 1.5;
           canvas.drawImageRect(
             img,
             Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()),
@@ -288,7 +288,7 @@ class GamePainter extends CustomPainter {
           canvas.drawImageRect(
             img,
             Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()),
-            Rect.fromCenter(center: Offset.zero, width: r.width * 2.8, height: r.height * 1.5),
+            Rect.fromCenter(center: Offset.zero, width: r.width * 4.2, height: r.height * 2.0),
             Paint()..blendMode = BlendMode.screen,
           );
           canvas.restore();

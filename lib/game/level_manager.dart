@@ -93,8 +93,8 @@ class LevelManager {
           velocity: Offset(60.0, 0),
           width: 72.0,
           height: 48.0,
-          health: 15,
-          shootCooldown: 2.5, // Boss shoots even in Tier 1!
+          health: 40,
+          shootCooldown: 2.0,
         ));
         // Add 2 guards
         drones.add(DroneEnemy(
@@ -217,8 +217,8 @@ class LevelManager {
           velocity: Offset(70.0, 0),
           width: 80.0,
           height: 50.0,
-          health: 30,
-          shootCooldown: 2.0,
+          health: 80,
+          shootCooldown: 1.8,
         ));
         // Guarded by explosive wings
         drones.add(DroneEnemy(
@@ -325,8 +325,8 @@ class LevelManager {
           velocity: Offset(80.0, 0),
           width: 84.0,
           height: 52.0,
-          health: 45,
-          shootCooldown: 1.6,
+          health: 120,
+          shootCooldown: 1.4,
         ));
         // Spawns with 4 armored guards
         for (int i = 0; i < 4; i++) {
@@ -431,44 +431,50 @@ class LevelManager {
         }
         break;
       case 20:
-        // FINAL BOSS: Cosmic Carrier
+        // FINAL BOSS: Cosmic Carrier (Center - 250 HP)
         drones.add(DroneEnemy(
-          position: Offset(screenWidth / 2, 90.0),
+          position: Offset(screenWidth / 2, 80.0),
           type: DroneType.boss,
-          velocity: Offset(90.0, 0),
+          velocity: Offset(60.0, 0),
           width: 96.0,
           height: 60.0,
-          health: 65,
-          shootCooldown: 1.2,
+          health: 250,
+          shootCooldown: 1.0,
         ));
-        // Surrounded by armored guards & explosives
+        // FLANKING BOSS 1: Commander Boss (Left - 60 HP)
         drones.add(DroneEnemy(
-          position: Offset(margin, 160.0),
-          type: DroneType.armored,
-          velocity: Offset(90.0, 0),
-          health: 2,
+          position: Offset(screenWidth / 2 - 90.0, 135.0),
+          type: DroneType.boss,
+          velocity: Offset(45.0, 0),
+          width: 64.0,
+          height: 44.0,
+          health: 60,
+          shootCooldown: 1.5,
+        ));
+        // FLANKING BOSS 2: Shield Destroyer Boss (Right - 60 HP)
+        drones.add(DroneEnemy(
+          position: Offset(screenWidth / 2 + 90.0, 135.0),
+          type: DroneType.boss,
+          velocity: Offset(-45.0, 0),
+          width: 64.0,
+          height: 44.0,
+          health: 60,
+          shootCooldown: 1.5,
+        ));
+        // Guarded by explosive cores
+        drones.add(DroneEnemy(
+          position: Offset(margin, 190.0),
+          type: DroneType.explosive,
+          velocity: Offset(70.0, 0),
+          health: 1,
           shootCooldown: 2.0,
         ));
         drones.add(DroneEnemy(
-          position: Offset(screenWidth - margin, 160.0),
-          type: DroneType.armored,
-          velocity: Offset(-90.0, 0),
-          health: 2,
+          position: Offset(screenWidth - margin, 190.0),
+          type: DroneType.explosive,
+          velocity: Offset(-70.0, 0),
+          health: 1,
           shootCooldown: 2.0,
-        ));
-        drones.add(DroneEnemy(
-          position: Offset(screenWidth / 2 - colWidth, 160.0),
-          type: DroneType.explosive,
-          velocity: Offset(90.0, 0),
-          health: 1,
-          shootCooldown: 1.5,
-        ));
-        drones.add(DroneEnemy(
-          position: Offset(screenWidth / 2 + colWidth, 160.0),
-          type: DroneType.explosive,
-          velocity: Offset(-90.0, 0),
-          health: 1,
-          shootCooldown: 1.5,
         ));
         break;
       default:
@@ -489,18 +495,20 @@ class LevelManager {
     if (level % 5 != 0) { // Not a boss level
       List<DroneEnemy> extraDrones = [];
       for (var drone in drones) {
-        // Drone 2: shifted slightly down-left
+        // Drone 2: shifted slightly up-left, clamped Y to avoid spawning low
+        double y2 = (drone.position.dy - 30.0).clamp(40.0, 220.0);
         extraDrones.add(DroneEnemy(
-          position: Offset(drone.position.dx - 22.0, drone.position.dy + 38.0),
+          position: Offset(drone.position.dx - 22.0, y2),
           type: drone.type,
           velocity: Offset(-drone.velocity.dx * 1.1, drone.velocity.dy),
           health: drone.health,
           shootCooldown: drone.shootCooldown * 0.85,
         ));
         
-        // Drone 3: shifted slightly down-right
+        // Drone 3: shifted slightly up-right, clamped Y to avoid spawning low
+        double y3 = (drone.position.dy - 60.0).clamp(40.0, 220.0);
         extraDrones.add(DroneEnemy(
-          position: Offset(drone.position.dx + 22.0, drone.position.dy + 76.0),
+          position: Offset(drone.position.dx + 22.0, y3),
           type: drone.type == DroneType.normal ? DroneType.armored : DroneType.normal,
           velocity: Offset(drone.velocity.dx * 0.9, drone.velocity.dy),
           health: drone.health,
@@ -514,32 +522,18 @@ class LevelManager {
       for (var drone in drones) {
         if (drone.type == DroneType.boss) {
           extraGuards.add(DroneEnemy(
-            position: Offset(drone.position.dx - 80.0, drone.position.dy + 50.0),
+            position: Offset(drone.position.dx - 80.0, (drone.position.dy + 50.0).clamp(40.0, 250.0)),
             type: DroneType.armored,
             velocity: Offset(50.0, 0.0),
             health: 3,
             shootCooldown: 2.2,
           ));
           extraGuards.add(DroneEnemy(
-            position: Offset(drone.position.dx + 80.0, drone.position.dy + 50.0),
+            position: Offset(drone.position.dx + 80.0, (drone.position.dy + 50.0).clamp(40.0, 250.0)),
             type: DroneType.armored,
             velocity: Offset(-50.0, 0.0),
             health: 3,
             shootCooldown: 2.2,
-          ));
-          extraGuards.add(DroneEnemy(
-            position: Offset(drone.position.dx - 140.0, drone.position.dy + 25.0),
-            type: DroneType.explosive,
-            velocity: Offset(60.0, 0.0),
-            health: 1,
-            shootCooldown: 2.8,
-          ));
-          extraGuards.add(DroneEnemy(
-            position: Offset(drone.position.dx + 140.0, drone.position.dy + 25.0),
-            type: DroneType.explosive,
-            velocity: Offset(-60.0, 0.0),
-            health: 1,
-            shootCooldown: 2.8,
           ));
         }
       }

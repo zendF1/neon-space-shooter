@@ -833,28 +833,111 @@ class GameManager extends ChangeNotifier {
     if (speedY > 320.0) speedY = 320.0;
 
     if (drone.type == DroneType.boss) {
-      // Boss fires circular 4-way pulse
-      enemyLasers.add(LaserBullet(
-        position: drone.position,
-        velocity: Offset(0, speedY),
-        isEnemy: true,
-        color: const Color(0xFFFF3377),
-        glowColor: const Color(0x99FF3377),
-      ));
-      enemyLasers.add(LaserBullet(
-        position: drone.position,
-        velocity: Offset(-60.0, speedY * 0.9),
-        isEnemy: true,
-        color: const Color(0xFFFF3377),
-        glowColor: const Color(0x99FF3377),
-      ));
-      enemyLasers.add(LaserBullet(
-        position: drone.position,
-        velocity: Offset(60.0, speedY * 0.9),
-        isEnemy: true,
-        color: const Color(0xFFFF3377),
-        glowColor: const Color(0x99FF3377),
-      ));
+      // 1. Ultimate Cosmic Carrier (Level 20 Main Boss - 250 max HP)
+      if (drone.maxHealth == 250) {
+        // Circular 360-degree spray of 8 fireballs
+        for (int i = 0; i < 8; i++) {
+          double angleRad = i * (math.pi / 4.0);
+          enemyLasers.add(LaserBullet(
+            position: drone.position,
+            velocity: Offset(math.cos(angleRad) * speedY * 0.8, math.sin(angleRad) * speedY * 0.8),
+            isEnemy: true,
+            color: const Color(0xFFBD00FF),
+            glowColor: const Color(0x99BD00FF),
+          ));
+        }
+        
+        // Bomb rain from the sky!
+        for (int i = 0; i < 5; i++) {
+          double bombX = 30.0 + _random.nextDouble() * (screenWidth - 60.0);
+          enemyLasers.add(LaserBullet(
+            position: Offset(bombX, -15.0),
+            velocity: Offset(0.0, speedY * 0.75),
+            isEnemy: true,
+            color: const Color(0xFFFF5555),
+            glowColor: const Color(0x99FF5555),
+            width: 8.0,
+            height: 8.0,
+          ));
+        }
+      } 
+      // 2. Heavy Carrier Boss (Level 15 - 120 max HP)
+      else if (drone.maxHealth == 120) {
+        // 3-way spread + bomb rain
+        enemyLasers.add(LaserBullet(
+          position: drone.position,
+          velocity: Offset(0, speedY),
+          isEnemy: true,
+          color: const Color(0xFFFF3377),
+          glowColor: const Color(0x99FF3377),
+        ));
+        enemyLasers.add(LaserBullet(
+          position: drone.position,
+          velocity: Offset(-45.0, speedY * 0.95),
+          isEnemy: true,
+          color: const Color(0xFFFF3377),
+          glowColor: const Color(0x99FF3377),
+        ));
+        enemyLasers.add(LaserBullet(
+          position: drone.position,
+          velocity: Offset(45.0, speedY * 0.95),
+          isEnemy: true,
+          color: const Color(0xFFFF3377),
+          glowColor: const Color(0x99FF3377),
+        ));
+        
+        // Bomb rain from the sky!
+        for (int i = 0; i < 4; i++) {
+          double bombX = 30.0 + _random.nextDouble() * (screenWidth - 60.0);
+          enemyLasers.add(LaserBullet(
+            position: Offset(bombX, -15.0),
+            velocity: Offset(0.0, speedY * 0.75),
+            isEnemy: true,
+            color: const Color(0xFFFF3333),
+            glowColor: const Color(0x99FF3333),
+            width: 8.0,
+            height: 8.0,
+          ));
+        }
+      }
+      // 3. Shield Destroyer Boss (Level 10 - 80 max HP or flanking in Level 20)
+      else if (drone.maxHealth == 80 || (level == 20 && drone.position.dx > screenWidth / 2)) {
+        // 5-way fan spread
+        for (double angle in [-60.0, -30.0, 0.0, 30.0, 60.0]) {
+          enemyLasers.add(LaserBullet(
+            position: drone.position,
+            velocity: Offset(angle, speedY * 0.95),
+            isEnemy: true,
+            color: const Color(0xFFFFCC00),
+            glowColor: const Color(0x99FFCC00),
+          ));
+        }
+      }
+      // 4. Commander Boss (Level 5 - 40 max HP or flanking in Level 20)
+      else {
+        // 3-way spread
+        enemyLasers.add(LaserBullet(
+          position: drone.position,
+          velocity: Offset(0, speedY),
+          isEnemy: true,
+          color: const Color(0xFFFF3377),
+          glowColor: const Color(0x99FF3377),
+        ));
+        enemyLasers.add(LaserBullet(
+          position: drone.position,
+          velocity: Offset(-45.0, speedY * 0.95),
+          isEnemy: true,
+          color: const Color(0xFFFF3377),
+          glowColor: const Color(0x99FF3377),
+        ));
+        enemyLasers.add(LaserBullet(
+          position: drone.position,
+          velocity: Offset(45.0, speedY * 0.95),
+          isEnemy: true,
+          color: const Color(0xFFFF3377),
+          glowColor: const Color(0x99FF3377),
+        ));
+      }
     } else {
       // Standard single bullet downward
       enemyLasers.add(LaserBullet(
@@ -865,7 +948,6 @@ class GameManager extends ChangeNotifier {
         glowColor: const Color(0x99FF5555),
       ));
     }
-    // Subtle beep for enemy firing
   }
 
   // --- Collision Resolutions ---
