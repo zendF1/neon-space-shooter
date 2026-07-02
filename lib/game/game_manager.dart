@@ -1,5 +1,7 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show ByteData, rootBundle;
 import 'package:flutter/scheduler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'models/spaceship.dart';
@@ -151,6 +153,37 @@ class GameManager extends ChangeNotifier {
     }
   }
 
+  // --- Sprite Preloading & Assets ---
+  final Map<String, ui.Image> spriteImages = {};
+  bool spritesLoaded = false;
+
+  Future<void> _preloadSprites() async {
+    try {
+      final list = {
+        'ship_pink': 'assets/images/ship_pink.png',
+        'ship_cyan': 'assets/images/ship_cyan.png',
+        'ship_gold': 'assets/images/ship_gold.png',
+        'drone_normal': 'assets/images/drone_normal.png',
+        'drone_armored': 'assets/images/drone_armored.png',
+        'drone_explosive': 'assets/images/drone_explosive.png',
+        'drone_boss': 'assets/images/drone_boss.png',
+      };
+      for (var entry in list.entries) {
+        spriteImages[entry.key] = await _loadSprite(entry.value);
+      }
+      spritesLoaded = true;
+    } catch (e) {
+      // Fail silently
+    }
+  }
+
+  Future<ui.Image> _loadSprite(String path) async {
+    final ByteData data = await rootBundle.load(path);
+    final ui.Codec codec = await ui.instantiateImageCodec(data.buffer.asUint8List());
+    final ui.FrameInfo fi = await codec.getNextFrame();
+    return fi.image;
+  }
+
   // --- Persistence Methods (shared_preferences) ---
   Future<void> loadSavedData() async {
     try {
@@ -162,6 +195,9 @@ class GameManager extends ChangeNotifier {
       equippedLaser = prefs.getString('equippedBall') ?? 'ball_white';
       unlockedItems = prefs.getStringList('unlockedItems') ?? ['paddle_pink', 'ball_white'];
       endlessHighScore = prefs.getInt('endlessHighScore') ?? 0;
+      
+      // Load sprites
+      await _preloadSprites();
       
       _applyCosmeticsToModels();
       notifyListeners();

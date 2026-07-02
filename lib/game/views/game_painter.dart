@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import '../game_manager.dart';
 import '../models/drone_enemy.dart';
@@ -98,77 +99,89 @@ class GamePainter extends CustomPainter {
   void _drawSpaceship(Canvas canvas) {
     var ship = manager.spaceship;
     
-    // 1. Draw thruster flame
-    double flameFlicker = 10.0 + 12.0 * math.sin(DateTime.now().millisecondsSinceEpoch * 0.04);
-    Path flamePath = Path();
-    flamePath.moveTo(ship.positionX - ship.width / 6, ship.positionY + ship.height / 3);
-    flamePath.lineTo(ship.positionX, ship.positionY + ship.height / 3 + flameFlicker);
-    flamePath.lineTo(ship.positionX + ship.width / 6, ship.positionY + ship.height / 3);
-    flamePath.close();
-
-    final Paint flamePaint = Paint()
-      ..color = Colors.orangeAccent.withOpacity(0.8)
-      ..style = PaintingStyle.fill
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5.0);
-    canvas.drawPath(flamePath, flamePaint);
-
-    final Paint flameCore = Paint()
-      ..color = Colors.yellowAccent
-      ..style = PaintingStyle.fill
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.0);
-    canvas.drawCircle(Offset(ship.positionX, ship.positionY + ship.height / 3), 4.0, flameCore);
-
-    // 2. Spaceship path based on skin
-    Path shipPath = Path();
-    if (ship.skinId == 'ship_gold') {
-      // Golden Valkyrie skin (Sharp sweeping wings, dual fuselage)
-      shipPath.moveTo(ship.positionX, ship.positionY - ship.height / 2);
-      shipPath.lineTo(ship.positionX - ship.width / 3, ship.positionY - ship.height / 8);
-      shipPath.lineTo(ship.positionX - ship.width / 2, ship.positionY + ship.height / 2);
-      shipPath.lineTo(ship.positionX - ship.width / 8, ship.positionY + ship.height / 4);
-      shipPath.lineTo(ship.positionX, ship.positionY + ship.height / 8);
-      shipPath.lineTo(ship.positionX + ship.width / 8, ship.positionY + ship.height / 4);
-      shipPath.lineTo(ship.positionX + ship.width / 2, ship.positionY + ship.height / 2);
-      shipPath.lineTo(ship.positionX + ship.width / 3, ship.positionY - ship.height / 8);
-      shipPath.close();
-    } else if (ship.skinId == 'ship_cyan') {
-      // Plasma Vector skin (Delta fighter shape)
-      shipPath.moveTo(ship.positionX, ship.positionY - ship.height / 2);
-      shipPath.lineTo(ship.positionX - ship.width / 2, ship.positionY + ship.height / 3);
-      shipPath.lineTo(ship.positionX - ship.width / 4, ship.positionY + ship.height / 3);
-      shipPath.lineTo(ship.positionX, ship.positionY - ship.height / 8);
-      shipPath.lineTo(ship.positionX + ship.width / 4, ship.positionY + ship.height / 3);
-      shipPath.lineTo(ship.positionX + ship.width / 2, ship.positionY + ship.height / 3);
-      shipPath.close();
+    if (manager.spritesLoaded && manager.spriteImages.containsKey(ship.skinId)) {
+      final ui.Image? img = manager.spriteImages[ship.skinId];
+      if (img != null) {
+        canvas.drawImageRect(
+          img,
+          Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()),
+          ship.rect,
+          Paint()..blendMode = BlendMode.screen,
+        );
+      }
     } else {
-      // default: ship_pink (sleek jet star)
-      shipPath.moveTo(ship.positionX, ship.positionY - ship.height / 2);
-      shipPath.lineTo(ship.positionX - ship.width / 2, ship.positionY + ship.height / 2);
-      shipPath.lineTo(ship.positionX - ship.width / 6, ship.positionY + ship.height / 4);
-      shipPath.lineTo(ship.positionX + ship.width / 6, ship.positionY + ship.height / 4);
-      shipPath.lineTo(ship.positionX + ship.width / 2, ship.positionY + ship.height / 2);
-      shipPath.close();
+      // 1. Draw thruster flame
+      double flameFlicker = 10.0 + 12.0 * math.sin(DateTime.now().millisecondsSinceEpoch * 0.04);
+      Path flamePath = Path();
+      flamePath.moveTo(ship.positionX - ship.width / 6, ship.positionY + ship.height / 3);
+      flamePath.lineTo(ship.positionX, ship.positionY + ship.height / 3 + flameFlicker);
+      flamePath.lineTo(ship.positionX + ship.width / 6, ship.positionY + ship.height / 3);
+      flamePath.close();
+
+      final Paint flamePaint = Paint()
+        ..color = Colors.orangeAccent.withOpacity(0.8)
+        ..style = PaintingStyle.fill
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5.0);
+      canvas.drawPath(flamePath, flamePaint);
+
+      final Paint flameCore = Paint()
+        ..color = Colors.yellowAccent
+        ..style = PaintingStyle.fill
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.0);
+      canvas.drawCircle(Offset(ship.positionX, ship.positionY + ship.height / 3), 4.0, flameCore);
+
+      // 2. Spaceship path based on skin
+      Path shipPath = Path();
+      if (ship.skinId == 'ship_gold') {
+        // Golden Valkyrie skin (Sharp sweeping wings, dual fuselage)
+        shipPath.moveTo(ship.positionX, ship.positionY - ship.height / 2);
+        shipPath.lineTo(ship.positionX - ship.width / 3, ship.positionY - ship.height / 8);
+        shipPath.lineTo(ship.positionX - ship.width / 2, ship.positionY + ship.height / 2);
+        shipPath.lineTo(ship.positionX - ship.width / 8, ship.positionY + ship.height / 4);
+        shipPath.lineTo(ship.positionX, ship.positionY + ship.height / 8);
+        shipPath.lineTo(ship.positionX + ship.width / 8, ship.positionY + ship.height / 4);
+        shipPath.lineTo(ship.positionX + ship.width / 2, ship.positionY + ship.height / 2);
+        shipPath.lineTo(ship.positionX + ship.width / 3, ship.positionY - ship.height / 8);
+        shipPath.close();
+      } else if (ship.skinId == 'ship_cyan') {
+        // Plasma Vector skin (Delta fighter shape)
+        shipPath.moveTo(ship.positionX, ship.positionY - ship.height / 2);
+        shipPath.lineTo(ship.positionX - ship.width / 2, ship.positionY + ship.height / 3);
+        shipPath.lineTo(ship.positionX - ship.width / 4, ship.positionY + ship.height / 3);
+        shipPath.lineTo(ship.positionX, ship.positionY - ship.height / 8);
+        shipPath.lineTo(ship.positionX + ship.width / 4, ship.positionY + ship.height / 3);
+        shipPath.lineTo(ship.positionX + ship.width / 2, ship.positionY + ship.height / 3);
+        shipPath.close();
+      } else {
+        // default: ship_pink (sleek jet star)
+        shipPath.moveTo(ship.positionX, ship.positionY - ship.height / 2);
+        shipPath.lineTo(ship.positionX - ship.width / 2, ship.positionY + ship.height / 2);
+        shipPath.lineTo(ship.positionX - ship.width / 6, ship.positionY + ship.height / 4);
+        shipPath.lineTo(ship.positionX + ship.width / 6, ship.positionY + ship.height / 4);
+        shipPath.lineTo(ship.positionX + ship.width / 2, ship.positionY + ship.height / 2);
+        shipPath.close();
+      }
+
+      final Paint glowPaint = Paint()
+        ..color = ship.glowColor
+        ..style = PaintingStyle.fill
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10.0);
+      canvas.drawPath(shipPath, glowPaint);
+
+      final Paint linePaint = Paint()
+        ..color = ship.color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.0;
+      canvas.drawPath(shipPath, linePaint);
+
+      // Inner details (sleek cockpit)
+      Path cockpit = Path();
+      cockpit.moveTo(ship.positionX, ship.positionY - ship.height / 4);
+      cockpit.lineTo(ship.positionX - 4.0, ship.positionY + 4.0);
+      cockpit.lineTo(ship.positionX + 4.0, ship.positionY + 4.0);
+      cockpit.close();
+      canvas.drawPath(cockpit, Paint()..color = Colors.white.withOpacity(0.8)..style = PaintingStyle.fill);
     }
-
-    final Paint glowPaint = Paint()
-      ..color = ship.glowColor
-      ..style = PaintingStyle.fill
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10.0);
-    canvas.drawPath(shipPath, glowPaint);
-
-    final Paint linePaint = Paint()
-      ..color = ship.color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.0;
-    canvas.drawPath(shipPath, linePaint);
-
-    // Inner details (sleek cockpit)
-    Path cockpit = Path();
-    cockpit.moveTo(ship.positionX, ship.positionY - ship.height / 4);
-    cockpit.lineTo(ship.positionX - 4.0, ship.positionY + 4.0);
-    cockpit.lineTo(ship.positionX + 4.0, ship.positionY + 4.0);
-    cockpit.close();
-    canvas.drawPath(cockpit, Paint()..color = Colors.white.withOpacity(0.8)..style = PaintingStyle.fill);
 
     // 3. Shield bubble
     if (ship.shieldActive) {
@@ -238,61 +251,89 @@ class GamePainter extends CustomPainter {
     for (var drone in manager.drones) {
       if (drone.isDestroyed) continue;
 
-      Path dronePath = Path();
-      Rect r = drone.rect;
-
+      String spriteKey = 'drone_normal';
       switch (drone.type) {
         case DroneType.boss:
-          // Boss: Large intimidating cruiser shape
-          dronePath.moveTo(drone.position.dx, drone.position.dy + r.height / 2);
-          dronePath.lineTo(r.left, r.top);
-          dronePath.lineTo(r.left + r.width / 4, r.top + r.height / 6);
-          dronePath.lineTo(drone.position.dx, r.top - r.height / 4);
-          dronePath.lineTo(r.right - r.width / 4, r.top + r.height / 6);
-          dronePath.lineTo(r.right, r.top);
-          dronePath.close();
+          spriteKey = 'drone_boss';
           break;
         case DroneType.armored:
-          // Armored: Hexagon structure
-          dronePath.moveTo(drone.position.dx, r.top);
-          dronePath.lineTo(r.right, r.top + r.height / 3);
-          dronePath.lineTo(r.right, r.bottom - r.height / 3);
-          dronePath.moveTo(drone.position.dx, r.bottom);
-          dronePath.lineTo(r.left, r.bottom - r.height / 3);
-          dronePath.lineTo(r.left, r.top + r.height / 3);
-          dronePath.close();
+          spriteKey = 'drone_armored';
           break;
         case DroneType.explosive:
-          // Explosive: Star or Spiked cross
-          dronePath.moveTo(drone.position.dx, r.top);
-          dronePath.lineTo(drone.position.dx - r.width / 6, drone.position.dy - r.height / 6);
-          dronePath.lineTo(r.left, drone.position.dy);
-          dronePath.lineTo(drone.position.dx - r.width / 6, drone.position.dy + r.height / 6);
-          dronePath.lineTo(drone.position.dx, r.bottom);
-          dronePath.lineTo(drone.position.dx + r.width / 6, drone.position.dy + r.height / 6);
-          dronePath.lineTo(r.right, drone.position.dy);
-          dronePath.lineTo(drone.position.dx + r.width / 6, drone.position.dy - r.height / 6);
-          dronePath.close();
+          spriteKey = 'drone_explosive';
           break;
         case DroneType.normal:
-          // Normal: Diamond shape
-          dronePath.moveTo(drone.position.dx, r.top);
-          dronePath.lineTo(r.right, drone.position.dy);
-          dronePath.lineTo(drone.position.dx, r.bottom);
-          dronePath.lineTo(r.left, drone.position.dy);
-          dronePath.close();
+          spriteKey = 'drone_normal';
           break;
       }
 
-      // Draw neon colors
-      glowPaint.color = drone.glowColor;
-      canvas.drawPath(dronePath, glowPaint);
+      if (manager.spritesLoaded && manager.spriteImages.containsKey(spriteKey)) {
+        final ui.Image? img = manager.spriteImages[spriteKey];
+        if (img != null) {
+          canvas.drawImageRect(
+            img,
+            Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()),
+            drone.rect,
+            Paint()..blendMode = BlendMode.screen,
+          );
+        }
+      } else {
+        Path dronePath = Path();
+        Rect r = drone.rect;
 
-      fillPaint.color = Color.alphaBlend(drone.color.withOpacity(0.12), const Color(0xFF0E0B1A));
-      canvas.drawPath(dronePath, fillPaint);
+        switch (drone.type) {
+          case DroneType.boss:
+            // Boss: Large intimidating cruiser shape
+            dronePath.moveTo(drone.position.dx, drone.position.dy + r.height / 2);
+            dronePath.lineTo(r.left, r.top);
+            dronePath.lineTo(r.left + r.width / 4, r.top + r.height / 6);
+            dronePath.lineTo(drone.position.dx, r.top - r.height / 4);
+            dronePath.lineTo(r.right - r.width / 4, r.top + r.height / 6);
+            dronePath.lineTo(r.right, r.top);
+            dronePath.close();
+            break;
+          case DroneType.armored:
+            // Armored: Hexagon structure
+            dronePath.moveTo(drone.position.dx, r.top);
+            dronePath.lineTo(r.right, r.top + r.height / 3);
+            dronePath.lineTo(r.right, r.bottom - r.height / 3);
+            dronePath.moveTo(drone.position.dx, r.bottom);
+            dronePath.lineTo(r.left, r.bottom - r.height / 3);
+            dronePath.lineTo(r.left, r.top + r.height / 3);
+            dronePath.close();
+            break;
+          case DroneType.explosive:
+            // Explosive: Star or Spiked cross
+            dronePath.moveTo(drone.position.dx, r.top);
+            dronePath.lineTo(drone.position.dx - r.width / 6, drone.position.dy - r.height / 6);
+            dronePath.lineTo(r.left, drone.position.dy);
+            dronePath.lineTo(drone.position.dx - r.width / 6, drone.position.dy + r.height / 6);
+            dronePath.lineTo(drone.position.dx, r.bottom);
+            dronePath.lineTo(drone.position.dx + r.width / 6, drone.position.dy + r.height / 6);
+            dronePath.lineTo(r.right, drone.position.dy);
+            dronePath.lineTo(drone.position.dx + r.width / 6, drone.position.dy - r.height / 6);
+            dronePath.close();
+            break;
+          case DroneType.normal:
+            // Normal: Diamond shape
+            dronePath.moveTo(drone.position.dx, r.top);
+            dronePath.lineTo(r.right, drone.position.dy);
+            dronePath.lineTo(drone.position.dx, r.bottom);
+            dronePath.lineTo(r.left, drone.position.dy);
+            dronePath.close();
+            break;
+        }
 
-      borderPaint.color = drone.color;
-      canvas.drawPath(dronePath, borderPaint);
+        // Draw neon colors
+        glowPaint.color = drone.glowColor;
+        canvas.drawPath(dronePath, glowPaint);
+
+        fillPaint.color = Color.alphaBlend(drone.color.withOpacity(0.12), const Color(0xFF0E0B1A));
+        canvas.drawPath(dronePath, fillPaint);
+
+        borderPaint.color = drone.color;
+        canvas.drawPath(dronePath, borderPaint);
+      }
 
       // Boss HP Bar overlay
       if (drone.type == DroneType.boss) {
