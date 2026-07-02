@@ -75,6 +75,7 @@ class GameManager extends ChangeNotifier {
   int score = 0;
   int highScore = 0;
   int lives = 3;
+  double playerHP = 100.0;
   int level = 1;
   int combo = 0;
   double comboTimer = 0.0;
@@ -93,10 +94,19 @@ class GameManager extends ChangeNotifier {
   int homingMissileLevel = 0;
   int shieldMaxLevel = 1;
   int magnetLevel = 0;
+  int healthLevel = 1;
 
   // Homing Missiles
   final List<HomingMissile> missiles = [];
   double missileCooldown = 0.0;
+
+  // Gradual squad spawning queue
+  final List<DroneEnemy> droneSpawnQueue = [];
+  double droneSpawnTimer = 0.0;
+
+  // Boss intro & summons
+  final List<DroneEnemy> _bossGuardsToSpawn = [];
+  bool _bossSpawnedGuards = false;
 
   // Cosmetics & Shop
   String equippedSpaceship = 'paddle_pink';
@@ -105,6 +115,16 @@ class GameManager extends ChangeNotifier {
   
   bool isEndlessMode = false;
   int endlessHighScore = 0;
+
+  double get playerMaxHP {
+    double baseHP = 100.0;
+    if (equippedSpaceship == 'ship_cyan' || equippedSpaceship == 'paddle_green') {
+      baseHP = 150.0;
+    } else if (equippedSpaceship == 'ship_gold' || equippedSpaceship == 'paddle_gold') {
+      baseHP = 220.0;
+    }
+    return baseHP + (healthLevel - 1) * 30.0;
+  }
 
   // Wingmen Companion Drones
   final List<Wingman> wingmen = [];
@@ -199,6 +219,8 @@ class GameManager extends ChangeNotifier {
       'drone_armored': 'assets/images/drone_armored.png',
       'drone_explosive': 'assets/images/drone_explosive.png',
       'drone_boss': 'assets/images/drone_boss.png',
+      'drone_boss_heavy': 'assets/images/drone_boss_heavy.png',
+      'drone_boss_ultimate': 'assets/images/drone_boss_ultimate.png',
       'coin': 'assets/images/coin.png',
       'bullet_player': 'assets/images/bullet_player.png',
       'bullet_enemy': 'assets/images/bullet_enemy.png',
@@ -282,6 +304,7 @@ class GameManager extends ChangeNotifier {
       homingMissileLevel = prefs.getInt('homingMissileLevel') ?? 0;
       shieldMaxLevel = prefs.getInt('shieldMaxLevel') ?? 1;
       magnetLevel = prefs.getInt('magnetLevel') ?? 0;
+      healthLevel = prefs.getInt('healthLevel') ?? 1;
 
       equippedLeftWingman = prefs.getString('equippedLeftWingman') ?? 'none';
       equippedRightWingman = prefs.getString('equippedRightWingman') ?? 'none';
@@ -310,6 +333,7 @@ class GameManager extends ChangeNotifier {
       await prefs.setString('equippedLeftWingman', equippedLeftWingman);
       await prefs.setString('equippedRightWingman', equippedRightWingman);
       await prefs.setString('equippedUltimate', equippedUltimate);
+      await prefs.setInt('healthLevel', healthLevel);
     } catch (e) {
       // Fail silently
     }
@@ -336,6 +360,55 @@ class GameManager extends ChangeNotifier {
     spaceship.homingMissileLevel = homingMissileLevel;
     spaceship.shieldMaxLevel = shieldMaxLevel;
     spaceship.magnetLevel = magnetLevel;
+    spaceship.healthLevel = healthLevel;
+  }
+
+  void _setupLevel() {
+    drones.clear();
+    droneSpawnQueue.clear();
+    _bossGuardsToSpawn.clear();
+    _bossSpawnedGuards = false;
+    droneSpawnTimer = 0.0;
+
+    List<DroneEnemy> levelDrones = LevelManager.buildLevel(level, screenWidth);
+    
+    // Check if it's a boss level (5, 10, 15, 20)
+    bool isBossLvl = level == 5 || level == 10 || level == 15 || level == 20;
+
+    if (isBossLvl) {
+      DroneEnemy? bossDrone;
+      for (var d in levelDrones) {
+        if (d.type == DroneType.boss) {
+          bossDrone = d;
+          break;
+        }
+      }
+
+      if (bossDrone != null) {
+        // Set boss position to start off-screen
+        bossDrone.position = Offset(screenWidth / 2, -100.0);
+        // Save target Y
+        bossDrone.initialY = 120.0;
+
+        drones.add(bossDrone);
+
+        // Store all other guard drones
+        for (var d in levelDrones) {
+          if (d.type != DroneType.boss) {
+            _bossGuardsToSpawn.add(d);
+          }
+        }
+      } else {
+        drones.addAll(levelDrones);
+      }
+    } else {
+      // Normal level: queue all drones to spawn gradually
+      droneSpawnQueue.addAll(levelDrones);
+      for (var d in droneSpawnQueue) {
+        // Position them off-screen initially
+        d.position = Offset(d.position.dx, -60.0);
+      }
+    }
   }
 
   // --- Shop Business Logic ---
@@ -371,6 +444,11 @@ class GameManager extends ChangeNotifier {
         coins -= cost;
         magnetLevel++;
         spaceship.magnetLevel = magnetLevel;
+      } else if (id == 'health_max' && healthLevel < 4) {
+        coins -= cost;
+        healthLevel++;
+        spaceship.healthLevel = healthLevel;
+        playerHP = playerMaxHP;
       } else {
         return false;
       }
@@ -452,6 +530,7 @@ class GameManager extends ChangeNotifier {
     spaceship.shieldHealth = 0;
     spaceship.tripleShotTimer = 0.0;
     spaceship.rapidFireTimer = 0.0;
+    playerHP = playerMaxHP;
     
     _resetGameCollections();
     _applyCosmeticsToModels();
@@ -461,7 +540,7 @@ class GameManager extends ChangeNotifier {
     if (isEndlessMode) {
       _spawnEndlessWave();
     } else {
-      drones.addAll(LevelManager.buildLevel(level, screenWidth));
+      _setupLevel();
     }
     notifyListeners();
   }
@@ -553,8 +632,7 @@ class GameManager extends ChangeNotifier {
 
     _applyCosmeticsToModels();
     
-    drones.clear();
-    drones.addAll(LevelManager.buildLevel(level, screenWidth));
+    _setupLevel();
     
     state = GamePlayState.playing;
     audio.playBGM();
@@ -581,7 +659,7 @@ class GameManager extends ChangeNotifier {
     
     _resetGameCollections();
     _applyCosmeticsToModels();
-    drones.addAll(LevelManager.buildLevel(level, screenWidth));
+    _setupLevel();
     
     state = GamePlayState.playing;
     audio.stopBGM().then((_) {
@@ -659,19 +737,25 @@ class GameManager extends ChangeNotifier {
       ultimateActiveDuration -= deltaTime;
     }
 
-    // Spawn and update Black Holes
-    blackHoleSpawnTimer -= deltaTime;
-    if (blackHoleSpawnTimer <= 0) {
-      double bhX = 60.0 + _random.nextDouble() * (screenWidth - 120.0);
-      double bhY = 100.0 + _random.nextDouble() * (screenHeight - 250.0);
-      blackHoles.add(BlackHole(position: Offset(bhX, bhY)));
-      blackHoleSpawnTimer = 18.0 + _random.nextDouble() * 10.0;
-      floatingTexts.add(FloatingText(
-        text: "⚠️ GRAVITY DISTORTION ALERT ⚠️",
-        position: Offset(screenWidth / 2, screenHeight * 0.3),
-        color: Colors.cyanAccent,
-      ));
-      audio.playSFX('buff');
+    // Spawn and update Black Holes (Only from level 11 onwards)
+    if (level >= 11) {
+      blackHoleSpawnTimer -= deltaTime;
+      if (blackHoleSpawnTimer <= 0) {
+        double bhX = 60.0 + _random.nextDouble() * (screenWidth - 120.0);
+        double bhY = 100.0 + _random.nextDouble() * (screenHeight - 250.0);
+        blackHoles.add(BlackHole(position: Offset(bhX, bhY)));
+        blackHoleSpawnTimer = 18.0 + _random.nextDouble() * 10.0;
+        floatingTexts.add(FloatingText(
+          text: "⚠️ GRAVITY DISTORTION ALERT ⚠️",
+          position: Offset(screenWidth / 2, screenHeight * 0.3),
+          color: Colors.cyanAccent,
+        ));
+        audio.playSFX('buff');
+      }
+    } else {
+      if (blackHoles.isNotEmpty) {
+        blackHoles.clear();
+      }
     }
 
     for (int i = blackHoles.length - 1; i >= 0; i--) {
@@ -728,6 +812,7 @@ class GameManager extends ChangeNotifier {
         Rect droneRect = Rect.fromCenter(center: drone.position, width: drone.width, height: drone.height);
         if (beamRect.overlaps(droneRect)) {
           drone.health -= (15.0 * deltaTime).ceil();
+          drone.hitTimer = 1.5;
           if (_random.nextDouble() < 0.25) {
             particleSystem.spawnExplosion(drone.position, Colors.purpleAccent, count: 2);
           }
@@ -895,6 +980,45 @@ class GameManager extends ChangeNotifier {
       }
     }
 
+    // Spawning updates for normal levels
+    if (droneSpawnQueue.isNotEmpty) {
+      droneSpawnTimer -= enemyDeltaTime;
+      if (droneSpawnTimer <= 0) {
+        int count = math.min(2, droneSpawnQueue.length);
+        for (int i = 0; i < count; i++) {
+          drones.add(droneSpawnQueue.removeAt(0));
+        }
+        droneSpawnTimer = 1.6;
+      }
+    }
+
+    // Boss escort summoning updates for Boss levels
+    bool isBossLvl = level == 5 || level == 10 || level == 15 || level == 20;
+    if (isBossLvl && !_bossSpawnedGuards && drones.isNotEmpty) {
+      DroneEnemy? boss;
+      for (var d in drones) {
+        if (d.type == DroneType.boss) {
+          boss = d;
+          break;
+        }
+      }
+      if (boss != null && boss.position.dy >= boss.initialY) {
+        _bossSpawnedGuards = true;
+        for (var guard in _bossGuardsToSpawn) {
+          guard.position = Offset(guard.position.dx, -40.0);
+          drones.add(guard);
+        }
+        _bossGuardsToSpawn.clear();
+
+        floatingTexts.add(FloatingText(
+          text: "🚨 WARNING: HOSTILE DREADNOUGHT INBOUND 🚨",
+          position: Offset(screenWidth / 2, screenHeight * 0.35),
+          color: Colors.redAccent,
+        ));
+        audio.playSFX('lose');
+      }
+    }
+
     // 10. Update Drones & Firing
     for (int i = drones.length - 1; i >= 0; i--) {
       DroneEnemy drone = drones[i];
@@ -910,21 +1034,11 @@ class GameManager extends ChangeNotifier {
         drone.shootCooldown = minCD + _random.nextDouble() * 3.5;
       }
 
-      // If drone reaches spaceship's vertical plane, damage the player and bounce drone back up
-      if (drone.position.dy > spaceship.positionY && !drone.isDestroyed) {
+      // If drone reaches screen bottom, damage the player and bounce drone back up
+      if (drone.position.dy > screenHeight && !drone.isDestroyed) {
         drone.position = Offset(drone.position.dx, 50.0); // Wrap back to top
-        if (spaceship.shieldActive) {
-          spaceship.shieldActive = false;
-          audio.playSFX('buff');
-        } else {
-          lives--;
-          shakeIntensity = 8.0;
-          audio.playSFX('lose');
-          if (lives <= 0) {
-            _triggerGameOver();
-            return;
-          }
-        }
+        double dmg = drone.type == DroneType.boss ? 40.0 : 20.0;
+        _hitPlayer(dmg);
       }
     }
 
@@ -932,7 +1046,7 @@ class GameManager extends ChangeNotifier {
     _resolveCollisions();
 
     // 12. Level Clear check
-    if (drones.isEmpty) {
+    if (drones.isEmpty && droneSpawnQueue.isEmpty) {
       if (isEndlessMode) {
         level++;
         _spawnEndlessWave();
@@ -1068,61 +1182,46 @@ class GameManager extends ChangeNotifier {
     if (speedY > 320.0) speedY = 320.0;
 
     if (drone.type == DroneType.boss) {
-      // 1. Ultimate Cosmic Carrier (Level 20 Main Boss - 250 max HP)
-      if (drone.maxHealth == 250) {
-        // Circular 360-degree spray of 8 fireballs
-        for (int i = 0; i < 8; i++) {
-          double angleRad = i * (math.pi / 4.0);
+      // 1. All Bosses (Level 5+) shoot: 3-way spread
+      enemyLasers.add(LaserBullet(
+        position: drone.position,
+        velocity: Offset(0, speedY),
+        isEnemy: true,
+        color: const Color(0xFFFF3377),
+        glowColor: const Color(0x99FF3377),
+      ));
+      enemyLasers.add(LaserBullet(
+        position: drone.position,
+        velocity: Offset(-45.0, speedY * 0.95),
+        isEnemy: true,
+        color: const Color(0xFFFF3377),
+        glowColor: const Color(0x99FF3377),
+      ));
+      enemyLasers.add(LaserBullet(
+        position: drone.position,
+        velocity: Offset(45.0, speedY * 0.95),
+        isEnemy: true,
+        color: const Color(0xFFFF3377),
+        glowColor: const Color(0x99FF3377),
+      ));
+
+      // 2. Boss 2 (Level 10+) also shoots: 5-way fan spread (skipping center to avoid overlapping)
+      if (drone.maxHealth == 80 || drone.maxHealth == 120 || drone.maxHealth == 250) {
+        for (double angle in [-60.0, -30.0, 30.0, 60.0]) {
           enemyLasers.add(LaserBullet(
             position: drone.position,
-            velocity: Offset(math.cos(angleRad) * speedY * 0.8, math.sin(angleRad) * speedY * 0.8),
+            velocity: Offset(angle, speedY * 0.95),
             isEnemy: true,
-            color: const Color(0xFFBD00FF),
-            glowColor: const Color(0x99BD00FF),
+            color: const Color(0xFFFFCC00),
+            glowColor: const Color(0x99FFCC00),
           ));
         }
-        
-        // Bomb rain from the sky!
-        for (int i = 0; i < 5; i++) {
-          double bombX = 30.0 + _random.nextDouble() * (screenWidth - 60.0);
-          enemyLasers.add(LaserBullet(
-            position: Offset(bombX, -15.0),
-            velocity: Offset(0.0, speedY * 0.75),
-            isEnemy: true,
-            color: const Color(0xFFFF5555),
-            glowColor: const Color(0x99FF5555),
-            width: 8.0,
-            height: 8.0,
-          ));
-        }
-      } 
-      // 2. Heavy Carrier Boss (Level 15 - 120 max HP)
-      else if (drone.maxHealth == 120) {
-        // 3-way spread + bomb rain
-        enemyLasers.add(LaserBullet(
-          position: drone.position,
-          velocity: Offset(0, speedY),
-          isEnemy: true,
-          color: const Color(0xFFFF3377),
-          glowColor: const Color(0x99FF3377),
-        ));
-        enemyLasers.add(LaserBullet(
-          position: drone.position,
-          velocity: Offset(-45.0, speedY * 0.95),
-          isEnemy: true,
-          color: const Color(0xFFFF3377),
-          glowColor: const Color(0x99FF3377),
-        ));
-        enemyLasers.add(LaserBullet(
-          position: drone.position,
-          velocity: Offset(45.0, speedY * 0.95),
-          isEnemy: true,
-          color: const Color(0xFFFF3377),
-          glowColor: const Color(0x99FF3377),
-        ));
-        
-        // Bomb rain from the sky!
-        for (int i = 0; i < 4; i++) {
+      }
+
+      // 3. Boss 3 (Level 15+) also shoots: Bomb rain from the sky
+      if (drone.maxHealth == 120 || drone.maxHealth == 250) {
+        int count = drone.maxHealth == 250 ? 5 : 4;
+        for (int i = 0; i < count; i++) {
           double bombX = 30.0 + _random.nextDouble() * (screenWidth - 60.0);
           enemyLasers.add(LaserBullet(
             position: Offset(bombX, -15.0),
@@ -1135,43 +1234,19 @@ class GameManager extends ChangeNotifier {
           ));
         }
       }
-      // 3. Shield Destroyer Boss (Level 10 - 80 max HP or flanking in Level 20)
-      else if (drone.maxHealth == 80 || (level == 20 && drone.position.dx > screenWidth / 2)) {
-        // 5-way fan spread
-        for (double angle in [-60.0, -30.0, 0.0, 30.0, 60.0]) {
+
+      // 4. Boss 4 (Level 20) also shoots: Circular 360-degree spray of 8 fireballs
+      if (drone.maxHealth == 250) {
+        for (int i = 0; i < 8; i++) {
+          double angleRad = i * (math.pi / 4.0);
           enemyLasers.add(LaserBullet(
             position: drone.position,
-            velocity: Offset(angle, speedY * 0.95),
+            velocity: Offset(math.cos(angleRad) * speedY * 0.8, math.sin(angleRad) * speedY * 0.8),
             isEnemy: true,
-            color: const Color(0xFFFFCC00),
-            glowColor: const Color(0x99FFCC00),
+            color: const Color(0xFFBD00FF),
+            glowColor: const Color(0x99BD00FF),
           ));
         }
-      }
-      // 4. Commander Boss (Level 5 - 40 max HP or flanking in Level 20)
-      else {
-        // 3-way spread
-        enemyLasers.add(LaserBullet(
-          position: drone.position,
-          velocity: Offset(0, speedY),
-          isEnemy: true,
-          color: const Color(0xFFFF3377),
-          glowColor: const Color(0x99FF3377),
-        ));
-        enemyLasers.add(LaserBullet(
-          position: drone.position,
-          velocity: Offset(-45.0, speedY * 0.95),
-          isEnemy: true,
-          color: const Color(0xFFFF3377),
-          glowColor: const Color(0x99FF3377),
-        ));
-        enemyLasers.add(LaserBullet(
-          position: drone.position,
-          velocity: Offset(45.0, speedY * 0.95),
-          isEnemy: true,
-          color: const Color(0xFFFF3377),
-          glowColor: const Color(0x99FF3377),
-        ));
       }
     } else {
       // Standard single bullet downward
@@ -1194,6 +1269,7 @@ class GameManager extends ChangeNotifier {
           bullet.isDestroyed = true;
           int dmg = bullet.width > 10.0 ? 2 : 1;
           drone.health -= dmg;
+          drone.hitTimer = 1.5;
 
           // If hit by Ice Drone slowing bullet (light blue color)
           if (bullet.color == const Color(0xFF00E5FF)) {
@@ -1219,6 +1295,7 @@ class GameManager extends ChangeNotifier {
         if (PhysicsEngine.checkMissileEnemyCollision(missile, drone)) {
           missile.isDestroyed = true;
           drone.health -= 2; // Homing missiles deal double damage!
+          drone.hitTimer = 1.5;
           
           particleSystem.spawnExplosion(missile.position, drone.color, count: 8);
           audio.playSFX('hit');
@@ -1276,7 +1353,8 @@ class GameManager extends ChangeNotifier {
     for (var laser in enemyLasers) {
       if (PhysicsEngine.checkBulletSpaceshipCollision(laser, spaceship)) {
         laser.isDestroyed = true;
-        _hitPlayer();
+        double dmg = (laser.color == const Color(0xFFBD00FF) || laser.color == const Color(0xFFFF3377)) ? 30.0 : 15.0;
+        _hitPlayer(dmg);
         break;
       }
     }
@@ -1286,7 +1364,14 @@ class GameManager extends ChangeNotifier {
       if (PhysicsEngine.checkEnemySpaceshipCollision(drone, spaceship)) {
         drone.isDestroyed = true;
         particleSystem.spawnExplosion(drone.position, drone.color, count: 15);
-        _hitPlayer();
+        double dmg = drone.type == DroneType.boss
+            ? 60.0
+            : drone.type == DroneType.explosive
+                ? 45.0
+                : drone.type == DroneType.armored
+                    ? 35.0
+                    : 25.0;
+        _hitPlayer(dmg);
         break;
       }
     }
@@ -1299,7 +1384,7 @@ class GameManager extends ChangeNotifier {
       if (shipRect.overlaps(ast.rect)) {
         ast.isDestroyed = true;
         particleSystem.spawnExplosion(ast.position, Colors.orangeAccent, count: 12);
-        _hitPlayer();
+        _hitPlayer(ast.size);
         break;
       }
     }
@@ -1433,7 +1518,7 @@ class GameManager extends ChangeNotifier {
     }
   }
 
-  void _hitPlayer() {
+  void _hitPlayer(double damage) {
     if (spaceship.shieldActive) {
       spaceship.shieldHealth--;
       audio.playSFX('buff');
@@ -1455,16 +1540,27 @@ class GameManager extends ChangeNotifier {
       return;
     }
 
-    lives--;
+    playerHP -= damage;
     combo = 0;
     shakeIntensity = 10.0;
     audio.playSFX('lose');
 
-    if (lives <= 0) {
-      _triggerGameOver();
+    if (playerHP <= 0) {
+      lives--;
+      if (lives <= 0) {
+        playerHP = 0;
+        _triggerGameOver();
+      } else {
+        playerHP = playerMaxHP; // Revive with full HP!
+        floatingTexts.add(FloatingText(
+          text: "REVIVED! HP Restored",
+          position: Offset(spaceship.positionX, spaceship.positionY - 30),
+          color: Colors.greenAccent,
+        ));
+      }
     } else {
       floatingTexts.add(FloatingText(
-        text: "CRITICAL HIT!",
+        text: "-${damage.toInt()} HP",
         position: Offset(spaceship.positionX, spaceship.positionY - 30),
         color: Colors.redAccent,
       ));
@@ -1496,6 +1592,7 @@ class GameManager extends ChangeNotifier {
         break;
       case PowerUpType.extraLife:
         lives = (lives + 1).clamp(0, 5);
+        playerHP = playerMaxHP;
         text = "+1 LIFE!";
         break;
     }
@@ -1573,8 +1670,8 @@ class GameManager extends ChangeNotifier {
 
       // 2. Deal massive damage to all drones on screen
       for (var drone in drones) {
-        if (drone.isDestroyed) continue;
         drone.health -= 6;
+        drone.hitTimer = 1.5;
         particleSystem.spawnExplosion(drone.position, Colors.cyanAccent, count: 6);
         if (drone.health <= 0) {
           drone.isDestroyed = true;

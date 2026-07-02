@@ -406,7 +406,13 @@ class GamePainter extends CustomPainter {
       String spriteKey = 'drone_normal';
       switch (drone.type) {
         case DroneType.boss:
-          spriteKey = 'drone_boss';
+          if (drone.maxHealth == 80 || drone.maxHealth == 120) {
+            spriteKey = 'drone_boss_heavy';
+          } else if (drone.maxHealth == 250) {
+            spriteKey = 'drone_boss_ultimate';
+          } else {
+            spriteKey = 'drone_boss';
+          }
           break;
         case DroneType.armored:
           spriteKey = 'drone_armored';
@@ -422,20 +428,85 @@ class GamePainter extends CustomPainter {
       if (manager.spritesLoaded && manager.spriteImages.containsKey(spriteKey)) {
         final ui.Image? img = manager.spriteImages[spriteKey];
         if (img != null) {
+          Paint spritePaint = Paint()..blendMode = BlendMode.screen;
+          Rect drawRect = drone.rect;
+
+          if (drone.type == DroneType.boss) {
+            Color? tintColor;
+            double scaleFactor = 1.0;
+
+            if (drone.maxHealth == 40) {
+              // Level 5 Boss (Default purple)
+            } else if (drone.maxHealth == 80) {
+              // Level 10 Boss (Heavy green core - native)
+            } else if (drone.maxHealth == 120) {
+              // Level 15 Boss: Gold tint + 1.25x scale
+              tintColor = const Color(0xFFFFB300);
+              scaleFactor = 1.25;
+            } else if (drone.maxHealth == 250) {
+              // Level 20 Boss: Colossal red core + 1.5x scale
+              scaleFactor = 1.5;
+            }
+
+            if (tintColor != null) {
+              spritePaint.colorFilter = ColorFilter.mode(tintColor, BlendMode.modulate);
+            }
+
+            if (scaleFactor != 1.0) {
+              drawRect = Rect.fromCenter(
+                center: drone.position,
+                width: drone.width * scaleFactor,
+                height: drone.height * scaleFactor,
+              );
+            }
+
+            // Draw a rotating energy shield halo for the Ultimate Level 20 Boss
+            if (drone.maxHealth == 250) {
+              double timeFactor = DateTime.now().millisecondsSinceEpoch * 0.003;
+              canvas.save();
+              canvas.translate(drone.position.dx, drone.position.dy);
+              canvas.rotate(timeFactor);
+              
+              final Paint shieldGlow = Paint()
+                ..color = const Color(0xFFFF1744).withOpacity(0.18)
+                ..style = PaintingStyle.stroke
+                ..strokeWidth = 3.5
+                ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6.0);
+              
+              canvas.drawOval(
+                Rect.fromCenter(center: Offset.zero, width: drone.width * 1.8, height: drone.height * 1.6),
+                shieldGlow,
+              );
+              canvas.restore();
+            }
+          }
+
           canvas.drawImageRect(
             img,
             Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()),
-            drone.rect,
-            Paint()..blendMode = BlendMode.screen,
+            drawRect,
+            spritePaint,
           );
         }
       } else {
         Path dronePath = Path();
         Rect r = drone.rect;
 
+        if (drone.type == DroneType.boss) {
+          double scaleFactor = 1.0;
+          if (drone.maxHealth == 120) scaleFactor = 1.25;
+          if (drone.maxHealth == 250) scaleFactor = 1.5;
+          if (scaleFactor != 1.0) {
+            r = Rect.fromCenter(
+              center: drone.position,
+              width: drone.width * scaleFactor,
+              height: drone.height * scaleFactor,
+            );
+          }
+        }
+
         switch (drone.type) {
           case DroneType.boss:
-            // Boss: Large intimidating cruiser shape
             dronePath.moveTo(drone.position.dx, drone.position.dy + r.height / 2);
             dronePath.lineTo(r.left, r.top);
             dronePath.lineTo(r.left + r.width / 4, r.top + r.height / 6);
@@ -445,7 +516,6 @@ class GamePainter extends CustomPainter {
             dronePath.close();
             break;
           case DroneType.armored:
-            // Armored: Hexagon structure
             dronePath.moveTo(drone.position.dx, r.top);
             dronePath.lineTo(r.right, r.top + r.height / 3);
             dronePath.lineTo(r.right, r.bottom - r.height / 3);
@@ -455,7 +525,6 @@ class GamePainter extends CustomPainter {
             dronePath.close();
             break;
           case DroneType.explosive:
-            // Explosive: Star or Spiked cross
             dronePath.moveTo(drone.position.dx, r.top);
             dronePath.lineTo(drone.position.dx - r.width / 6, drone.position.dy - r.height / 6);
             dronePath.lineTo(r.left, drone.position.dy);
@@ -467,7 +536,6 @@ class GamePainter extends CustomPainter {
             dronePath.close();
             break;
           case DroneType.normal:
-            // Normal: Diamond shape
             dronePath.moveTo(drone.position.dx, r.top);
             dronePath.lineTo(r.right, drone.position.dy);
             dronePath.lineTo(drone.position.dx, r.bottom);
@@ -476,7 +544,6 @@ class GamePainter extends CustomPainter {
             break;
         }
 
-        // Draw neon colors
         glowPaint.color = drone.glowColor;
         canvas.drawPath(dronePath, glowPaint);
 
@@ -487,21 +554,26 @@ class GamePainter extends CustomPainter {
         canvas.drawPath(dronePath, borderPaint);
       }
 
-      // Boss HP Bar overlay
-      if (drone.type == DroneType.boss) {
-        double barW = drone.width;
-        double barH = 4.0;
+      // HP Bar overlay: Always shown for boss, shown for normal drones only if hitTimer > 0
+      if (drone.type == DroneType.boss || drone.hitTimer > 0) {
+        double scaleFactor = 1.0;
+        if (drone.type == DroneType.boss) {
+          if (drone.maxHealth == 120) scaleFactor = 1.25;
+          if (drone.maxHealth == 250) scaleFactor = 1.5;
+        }
+        double barW = drone.width * scaleFactor;
+        double barH = 3.0;
         Rect barRect = Rect.fromLTWH(
           drone.position.dx - barW / 2,
-          drone.position.dy - drone.height / 2 - 12.0,
+          drone.position.dy - (drone.height * scaleFactor) / 2 - 8.0,
           barW,
           barH,
         );
-        canvas.drawRect(barRect, Paint()..color = Colors.red.withOpacity(0.3)..style = PaintingStyle.fill);
-        double healthPct = drone.health / drone.maxHealth;
+        canvas.drawRect(barRect, Paint()..color = Colors.red.withOpacity(0.25)..style = PaintingStyle.fill);
+        double healthPct = (drone.health / drone.maxHealth).clamp(0.0, 1.0);
         canvas.drawRect(
           Rect.fromLTWH(barRect.left, barRect.top, barW * healthPct, barH),
-          Paint()..color = const Color(0xFFBD00FF)..style = PaintingStyle.fill,
+          Paint()..color = drone.color..style = PaintingStyle.fill,
         );
       }
     }

@@ -209,94 +209,152 @@ class _GameScreenState extends State<GameScreen>
           top: 10,
           left: 16,
           right: 16,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              // Score, Combo & Coins count
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
+                  // Score, Combo & Coins count
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            "SCORE: ${_manager.score}",
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16.0,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.0,
+                            ),
+                          ),
+                          const SizedBox(width: 12.0),
+                          Text(
+                            "👛 ${_manager.coins}",
+                            style: const TextStyle(
+                              color: Colors.amberAccent,
+                              fontSize: 16.0,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (_manager.combo > 1)
+                        Text(
+                          "COMBO x${_manager.combo}",
+                          style: const TextStyle(
+                            color: Colors.amberAccent,
+                            fontSize: 13.0,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.5,
+                          ),
+                        ),
+                    ],
+                  ),
+
+                  // Level, Lives, Mute & Pause
                   Row(
                     children: [
                       Text(
-                        "SCORE: ${_manager.score}",
-                        style: const TextStyle(
-                          color: Colors.white,
+                        _manager.isEndlessMode ? "ENDLESS" : "LV. ${_manager.level}",
+                        style: TextStyle(
+                          color: _manager.isEndlessMode ? Colors.purpleAccent : Colors.cyanAccent,
                           fontSize: 16.0,
                           fontWeight: FontWeight.bold,
-                          letterSpacing: 1.0,
                         ),
                       ),
                       const SizedBox(width: 12.0),
-                      Text(
-                        "👛 ${_manager.coins}",
-                        style: const TextStyle(
-                          color: Colors.amberAccent,
-                          fontSize: 16.0,
-                          fontWeight: FontWeight.bold,
+                      // Render Heart Icons based on lives
+                      ...List.generate(5, (index) {
+                        bool hasLife = index < _manager.lives;
+                        return Icon(
+                          Icons.favorite,
+                          size: 16.0,
+                          color: hasLife ? Colors.pinkAccent : Colors.white24,
+                        );
+                      }),
+                      const SizedBox(width: 8.0),
+                      // Mute Button
+                      IconButton(
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        icon: Icon(
+                          _manager.audio.isMuted ? Icons.volume_off : Icons.volume_up,
+                          color: Colors.white70,
+                          size: 20.0,
                         ),
+                        onPressed: () {
+                          setState(() {
+                            _manager.audio.toggleMute();
+                          });
+                        },
                       ),
+                      const SizedBox(width: 6.0),
+                      // Pause Button
+                      if (_manager.state == GamePlayState.playing)
+                        IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          icon: const Icon(Icons.pause, color: Colors.white70, size: 20.0),
+                          onPressed: _manager.pauseGame,
+                        ),
                     ],
                   ),
-                  if (_manager.combo > 1)
-                    Text(
-                      "COMBO x${_manager.combo}",
-                      style: const TextStyle(
-                        color: Colors.amberAccent,
-                        fontSize: 13.0,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.5,
-                      ),
-                    ),
                 ],
               ),
-
-              // Level, Lives, Mute & Pause
+              const SizedBox(height: 8.0),
+              // Glowing Neon Health Bar
               Row(
                 children: [
-                  Text(
-                    _manager.isEndlessMode ? "ENDLESS" : "LV. ${_manager.level}",
+                  const Text(
+                    "HULL HP ",
                     style: TextStyle(
-                      color: _manager.isEndlessMode ? Colors.purpleAccent : Colors.cyanAccent,
-                      fontSize: 16.0,
+                      color: Colors.redAccent,
+                      fontSize: 11.0,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.0,
+                    ),
+                  ),
+                  Expanded(
+                    child: Container(
+                      height: 6.0,
+                      decoration: BoxDecoration(
+                        color: Colors.white10,
+                        borderRadius: BorderRadius.circular(3.0),
+                        border: Border.all(color: Colors.redAccent.withOpacity(0.3), width: 1.0),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(3.0),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: FractionallySizedBox(
+                            widthFactor: (_manager.playerHP / _manager.playerMaxHP).clamp(0.0, 1.0),
+                            child: Container(
+                              decoration: const BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Colors.redAccent,
+                                    Colors.orangeAccent,
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8.0),
+                  Text(
+                    "${_manager.playerHP.toInt()}/${_manager.playerMaxHP.toInt()}",
+                    style: const TextStyle(
+                      color: Colors.redAccent,
+                      fontSize: 11.0,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(width: 12.0),
-                  // Render Heart Icons based on lives
-                  ...List.generate(3, (index) {
-                    bool hasLife = index < _manager.lives;
-                    return Icon(
-                      Icons.favorite,
-                      size: 16.0,
-                      color: hasLife ? Colors.pinkAccent : Colors.white24,
-                    );
-                  }),
-                  const SizedBox(width: 8.0),
-                  // Mute Button
-                  IconButton(
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    icon: Icon(
-                      _manager.audio.isMuted ? Icons.volume_off : Icons.volume_up,
-                      color: Colors.white70,
-                      size: 20.0,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _manager.audio.toggleMute();
-                      });
-                    },
-                  ),
-                  const SizedBox(width: 6.0),
-                  // Pause Button
-                  if (_manager.state == GamePlayState.playing)
-                    IconButton(
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      icon: const Icon(Icons.pause, color: Colors.white70, size: 20.0),
-                      onPressed: _manager.pauseGame,
-                    ),
                 ],
               ),
             ],

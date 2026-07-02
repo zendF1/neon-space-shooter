@@ -1003,6 +1003,21 @@ class ShopOverlay extends StatelessWidget {
                             costs: [150, 300, 550],
                             color: Colors.greenAccent,
                           ),
+                          _buildUpgradeItem(
+                            id: 'health_max',
+                            name: "Hull Plating",
+                            desc: "Upgrade maximum health capacity (HP) of your ship.",
+                            currentLvl: manager.healthLevel,
+                            maxLvl: 4,
+                            lvlDescs: [
+                              "Level 1: Base HP",
+                              "Level 2: +30 max HP capacity",
+                              "Level 3: +60 max HP capacity",
+                              "Level 4: +100 max HP capacity"
+                            ],
+                            costs: [0, 150, 300, 500],
+                            color: Colors.redAccent,
+                          ),
                         ],
                       );
                     },

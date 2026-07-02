@@ -18,6 +18,7 @@ class Spaceship {
   int homingMissileLevel = 0;
   int shieldMaxLevel = 1;
   int magnetLevel = 0;
+  int healthLevel = 1;
 
   // Active shield health
   int shieldHealth = 0;
