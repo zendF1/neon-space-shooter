@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
+import 'dart:async' show Completer;
 import 'package:flutter/material.dart';
+import 'dart:typed_data' show Uint8List;
 import 'package:flutter/services.dart' show ByteData, rootBundle;
 import 'package:flutter/scheduler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -73,7 +75,7 @@ class GameManager extends ChangeNotifier {
   int level = 1;
   int combo = 0;
   double comboTimer = 0.0;
-  int coins = 0; // Currency
+  int coins = 100000; // Currency (Dev Mode)
 
   // Screen Shake
   double shakeIntensity = 0.0;
@@ -178,13 +180,52 @@ class GameManager extends ChangeNotifier {
         'drone_armored': 'assets/images/drone_armored.png',
         'drone_explosive': 'assets/images/drone_explosive.png',
         'drone_boss': 'assets/images/drone_boss.png',
+        'coin': 'assets/images/coin.png',
+        'bullet_player': 'assets/images/bullet_player.png',
+        'bullet_enemy': 'assets/images/bullet_enemy.png',
+        'missile': 'assets/images/missile.png',
       };
       for (var entry in list.entries) {
-        spriteImages[entry.key] = await _loadSprite(entry.value);
+        final rawImg = await _loadSprite(entry.value);
+        spriteImages[entry.key] = await _makeBackgroundTransparent(rawImg);
       }
       spritesLoaded = true;
     } catch (e) {
       // Fail silently
+    }
+  }
+
+  Future<ui.Image> _makeBackgroundTransparent(ui.Image image) async {
+    try {
+      final ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+      if (byteData == null) return image;
+
+      final Uint8List pixels = byteData.buffer.asUint8List();
+      final int len = pixels.length;
+
+      for (int i = 0; i < len; i += 4) {
+        int r = pixels[i];
+        int g = pixels[i + 1];
+        int b = pixels[i + 2];
+        // Make very dark background pixels completely transparent
+        if (r < 32 && g < 32 && b < 32) {
+          pixels[i + 3] = 0; // Alpha = 0
+        }
+      }
+
+      final Completer<ui.Image> completer = Completer<ui.Image>();
+      ui.decodeImageFromPixels(
+        pixels,
+        image.width,
+        image.height,
+        ui.PixelFormat.rgba8888,
+        (ui.Image img) {
+          completer.complete(img);
+        },
+      );
+      return completer.future;
+    } catch (e) {
+      return image;
     }
   }
 
@@ -200,12 +241,18 @@ class GameManager extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       highScore = prefs.getInt('highScore') ?? 0;
-      coins = prefs.getInt('coins') ?? 0;
+      coins = 100000; // Dev Mode Override (Originally loaded from SharedPreferences)
       maxUnlockedLevel = prefs.getInt('maxUnlockedLevel') ?? 1;
       equippedSpaceship = prefs.getString('equippedPaddle') ?? 'paddle_pink';
       equippedLaser = prefs.getString('equippedBall') ?? 'ball_white';
       unlockedItems = prefs.getStringList('unlockedItems') ?? ['paddle_pink', 'ball_white'];
       endlessHighScore = prefs.getInt('endlessHighScore') ?? 0;
+
+      // Upgrades
+      mainCannonLevel = prefs.getInt('mainCannonLevel') ?? 1;
+      homingMissileLevel = prefs.getInt('homingMissileLevel') ?? 0;
+      shieldMaxLevel = prefs.getInt('shieldMaxLevel') ?? 1;
+      magnetLevel = prefs.getInt('magnetLevel') ?? 0;
       
       // Load sprites
       await _preloadSprites();
