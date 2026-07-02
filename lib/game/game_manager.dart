@@ -207,8 +207,8 @@ class GameManager extends ChangeNotifier {
         int r = pixels[i];
         int g = pixels[i + 1];
         int b = pixels[i + 2];
-        // Make very dark background pixels completely transparent
-        if (r < 32 && g < 32 && b < 32) {
+        // Make very dark background pixels completely transparent (RGB < 55)
+        if (r < 55 && g < 55 && b < 55) {
           pixels[i + 3] = 0; // Alpha = 0
         }
       }
@@ -563,15 +563,13 @@ class GameManager extends ChangeNotifier {
       return;
     }
 
-    double speedMultiplier = 1.0;
+    double enemyDeltaTime = slowMotionTimer > 0 ? deltaTime * 0.35 : deltaTime;
     if (slowMotionTimer > 0) {
       slowMotionTimer -= deltaTime;
-      speedMultiplier = 0.5; // Slow down game updates
     }
-    double simDeltaTime = deltaTime * speedMultiplier;
 
     // 2. Spaceship updates
-    spaceship.updatePowerUps(simDeltaTime);
+    spaceship.updatePowerUps(deltaTime);
 
     // 3. Screen shake resolution
     if (shakeIntensity > 0) {
@@ -587,7 +585,7 @@ class GameManager extends ChangeNotifier {
 
     // 4. Floating texts & Particle updates
     _updateFloatingTexts(deltaTime);
-    particleSystem.update(simDeltaTime);
+    particleSystem.update(deltaTime);
 
     // 5. Combo decays
     if (comboTimer > 0) {
@@ -626,7 +624,7 @@ class GameManager extends ChangeNotifier {
 
     // 7. Update player bullets
     for (int i = laserBullets.length - 1; i >= 0; i--) {
-      laserBullets[i].update(simDeltaTime);
+      laserBullets[i].update(deltaTime);
       if (laserBullets[i].position.dy < -20.0 || laserBullets[i].isDestroyed) {
         laserBullets.removeAt(i);
       }
@@ -634,7 +632,7 @@ class GameManager extends ChangeNotifier {
 
     // 7b. Update homing missiles
     for (int i = missiles.length - 1; i >= 0; i--) {
-      missiles[i].update(simDeltaTime, drones);
+      missiles[i].update(deltaTime, drones);
       if (missiles[i].position.dy < -30.0 || missiles[i].isDestroyed) {
         missiles.removeAt(i);
       }
@@ -642,7 +640,7 @@ class GameManager extends ChangeNotifier {
 
     // 8. Update enemy bullets
     for (int i = enemyLasers.length - 1; i >= 0; i--) {
-      enemyLasers[i].update(simDeltaTime);
+      enemyLasers[i].update(enemyDeltaTime);
       if (enemyLasers[i].position.dy > screenHeight + 20.0 || enemyLasers[i].isDestroyed) {
         enemyLasers.removeAt(i);
       }
@@ -650,13 +648,13 @@ class GameManager extends ChangeNotifier {
 
     // 9. Update falling items
     for (int i = fallingCoins.length - 1; i >= 0; i--) {
-      fallingCoins[i].update(simDeltaTime, spaceshipPosition: Offset(spaceship.positionX, spaceship.positionY), magnetLevel: spaceship.magnetLevel);
+      fallingCoins[i].update(deltaTime, spaceshipPosition: Offset(spaceship.positionX, spaceship.positionY), magnetLevel: spaceship.magnetLevel);
       if (fallingCoins[i].position.dy > screenHeight + 20.0 || fallingCoins[i].isCollected) {
         fallingCoins.removeAt(i);
       }
     }
     for (int i = powerUps.length - 1; i >= 0; i--) {
-      powerUps[i].update(simDeltaTime, spaceshipPosition: Offset(spaceship.positionX, spaceship.positionY), magnetLevel: spaceship.magnetLevel);
+      powerUps[i].update(deltaTime, spaceshipPosition: Offset(spaceship.positionX, spaceship.positionY), magnetLevel: spaceship.magnetLevel);
       if (powerUps[i].position.dy > screenHeight + 20.0 || powerUps[i].isCollected) {
         powerUps.removeAt(i);
       }
@@ -666,7 +664,7 @@ class GameManager extends ChangeNotifier {
     for (int i = drones.length - 1; i >= 0; i--) {
       DroneEnemy drone = drones[i];
 
-      drone.update(simDeltaTime, screenWidth);
+      drone.update(enemyDeltaTime, screenWidth);
       
       // Auto-shoot for drones
       if (drone.shootCooldown <= 0 && !drone.isDestroyed) {

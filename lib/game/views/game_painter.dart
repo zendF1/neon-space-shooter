@@ -7,6 +7,20 @@ import '../models/drone_enemy.dart';
 class GamePainter extends CustomPainter {
   final GameManager manager;
 
+  // Static Paint pooling to completely avoid GC allocations in paint loops
+  static final Paint _bgPaint = Paint()..style = PaintingStyle.fill;
+  static final Paint _gridPaint = Paint()..style = PaintingStyle.stroke;
+  static final Paint _starPaint = Paint()..style = PaintingStyle.fill;
+  static final Paint _particlePaint = Paint()..style = PaintingStyle.fill;
+  static final Paint _bulletPaint = Paint()..style = PaintingStyle.fill;
+  static final Paint _glowPaint = Paint()..style = PaintingStyle.fill;
+
+  // Cached shader parameters to avoid allocating LinearGradient shaders every frame
+  static double? _cachedWidth;
+  static double? _cachedHeight;
+  static int? _cachedLevel;
+  static Shader? _cachedShader;
+
   GamePainter({required this.manager}) : super(repaint: manager);
 
   @override
@@ -51,50 +65,85 @@ class GamePainter extends CustomPainter {
   }
 
   void _drawStarfield(Canvas canvas, Size size) {
-    // Background Dark Space Gradient
-    final Paint bgPaint = Paint()
-      ..shader = const LinearGradient(
-        colors: [Color(0xFF07050F), Color(0xFF130E26)],
+    // Divide levels into 4 zones (every 5 levels represents a zone theme)
+    int zone = (((manager.level - 1) ~/ 5) + 1).clamp(1, 4);
+
+    // Rebuild shader only on screen size or level theme change
+    if (_cachedWidth != size.width || _cachedHeight != size.height || _cachedLevel != manager.level) {
+      _cachedWidth = size.width;
+      _cachedHeight = size.height;
+      _cachedLevel = manager.level;
+
+      List<Color> colors;
+      if (zone == 1) {
+        colors = [const Color(0xFF07050F), const Color(0xFF130E26)];
+      } else if (zone == 2) {
+        colors = [const Color(0xFF0E031A), const Color(0xFF030107)];
+      } else if (zone == 3) {
+        colors = [const Color(0xFF2D0700), const Color(0xFF090100)];
+      } else {
+        colors = [const Color(0xFF01010B), const Color(0xFF03061A)];
+      }
+
+      _cachedShader = LinearGradient(
+        colors: colors,
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
-    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
+    }
 
-    // Grid pattern (subtle cyan)
-    final Paint gridPaint = Paint()
-      ..color = const Color(0x0600FFFF)
-      ..strokeWidth = 1.0;
-    
+    if (_cachedShader != null) {
+      _bgPaint.shader = _cachedShader;
+      canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), _bgPaint);
+    }
+
+    // Grid color and stroke based on Map Zone theme
+    Color gridColor;
+    if (zone == 1) {
+      gridColor = const Color(0x0600FFFF); // Subtle cyan grid
+    } else if (zone == 2) {
+      gridColor = const Color(0x0C00FFFF); // Bold neon grid
+    } else if (zone == 3) {
+      gridColor = const Color(0x08FF5500); // Solar orange grid
+    } else {
+      gridColor = const Color(0x040055FF); // Warp space deep blue grid
+    }
+
+    _gridPaint.color = gridColor;
+    _gridPaint.strokeWidth = 1.0;
+
     double gridSpacing = 40.0;
     for (double x = 0; x < size.width; x += gridSpacing) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), _gridPaint);
     }
     for (double y = 0; y < size.height; y += gridSpacing) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), _gridPaint);
     }
 
-    // Stars
+    // Draw Stars (optimized - NO MaskFilter.blur inside loops)
     for (int i = 0; i < manager.stars.length; i++) {
       Offset pos = manager.stars[i];
       double speed = manager.starSpeeds[i];
-      
-      // Map speed to brightness & size
+
       double radius = speed * 1.5;
-      Color starColor = Colors.white.withOpacity(0.3 + 0.7 * speed);
+      Color starColor;
 
-      final Paint starPaint = Paint()
-        ..color = starColor
-        ..style = PaintingStyle.fill;
+      if (zone == 3) {
+        // Solar flare zone features orange/amber stars
+        starColor = Color.lerp(Colors.amberAccent, Colors.deepOrangeAccent, speed)!.withOpacity(0.3 + 0.7 * speed);
+      } else {
+        starColor = Colors.white.withOpacity(0.3 + 0.7 * speed);
+      }
 
-      // Draw star
-      canvas.drawCircle(pos, radius, starPaint);
+      _starPaint.color = starColor;
 
-      // Add a tiny glow to fast foreground stars
-      if (speed > 0.8) {
-        final Paint starGlow = Paint()
-          ..color = starColor.withOpacity(0.3)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.0);
-        canvas.drawCircle(pos, radius * 2.0, starGlow);
+      if (zone == 4) {
+        // Hyper Warp zone stars stretch into vertical streaks to simulate cosmic travel speed!
+        double tailLen = radius * 12.0;
+        _starPaint.strokeWidth = radius;
+        canvas.drawLine(pos, Offset(pos.dx, pos.dy + tailLen), _starPaint);
+      } else {
+        canvas.drawCircle(pos, radius, _starPaint);
       }
     }
   }
@@ -223,15 +272,17 @@ class GamePainter extends CustomPainter {
           );
         }
       } else {
-        final Paint laserPaint = Paint()..style = PaintingStyle.fill..color = laser.color;
-        final Paint glowPaint = Paint()..style = PaintingStyle.fill..color = laser.glowColor..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6.0);
-        canvas.drawRect(laser.rect, glowPaint);
-        canvas.drawRect(laser.rect, laserPaint);
+        _bulletPaint.color = laser.color;
+        _glowPaint.color = laser.glowColor;
+        _glowPaint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 6.0);
+        canvas.drawRect(laser.rect, _glowPaint);
+        canvas.drawRect(laser.rect, _bulletPaint);
 
         // Core white brightness
+        _bulletPaint.color = Colors.white;
         canvas.drawRect(
           Rect.fromLTWH(laser.rect.left + 1, laser.rect.top, laser.rect.width - 2, laser.rect.height),
-          Paint()..color = Colors.white..style = PaintingStyle.fill,
+          _bulletPaint,
         );
       }
     }
@@ -255,15 +306,17 @@ class GamePainter extends CustomPainter {
           );
         }
       } else {
-        final Paint laserPaint = Paint()..style = PaintingStyle.fill..color = laser.color;
-        final Paint glowPaint = Paint()..style = PaintingStyle.fill..color = laser.glowColor..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6.0);
-        canvas.drawRect(laser.rect, glowPaint);
-        canvas.drawRect(laser.rect, laserPaint);
+        _bulletPaint.color = laser.color;
+        _glowPaint.color = laser.glowColor;
+        _glowPaint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 6.0);
+        canvas.drawRect(laser.rect, _glowPaint);
+        canvas.drawRect(laser.rect, _bulletPaint);
 
         // Core brightness
+        _bulletPaint.color = Colors.white;
         canvas.drawRect(
           Rect.fromLTWH(laser.rect.left + 1, laser.rect.top, laser.rect.width - 2, laser.rect.height),
-          Paint()..color = Colors.white..style = PaintingStyle.fill,
+          _bulletPaint,
         );
       }
     }
@@ -505,10 +558,8 @@ class GamePainter extends CustomPainter {
 
   void _drawParticles(Canvas canvas) {
     for (var p in manager.particleSystem.particles) {
-      final Paint pPaint = Paint()
-        ..color = p.color.withOpacity(p.life)
-        ..style = PaintingStyle.fill;
-      canvas.drawCircle(p.position, p.size * (0.5 + 0.5 * p.life), pPaint);
+      _particlePaint.color = p.color.withOpacity(p.life.clamp(0.0, 1.0));
+      canvas.drawCircle(p.position, p.size * (0.5 + 0.5 * p.life), _particlePaint);
     }
   }
 
