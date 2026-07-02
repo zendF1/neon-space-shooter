@@ -312,8 +312,8 @@ class GamePainter extends CustomPainter {
     for (var laser in manager.enemyLasers) {
       canvas.save();
       canvas.translate(laser.position.dx, laser.position.dy);
-      // Rotate bullet to align with its velocity vector
-      double angle = math.atan2(laser.velocity.dy, laser.velocity.dx) + math.pi / 2;
+      // Rotate bullet to align with its velocity vector (default sprite faces DOWN, so subtract pi/2)
+      double angle = math.atan2(laser.velocity.dy, laser.velocity.dx) - math.pi / 2;
       canvas.rotate(angle);
 
       if (manager.spritesLoaded && manager.spriteImages.containsKey('bullet_enemy')) {
