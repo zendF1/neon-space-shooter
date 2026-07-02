@@ -231,19 +231,14 @@ class GameManager extends ChangeNotifier {
         int g = pixels[i + 1];
         int b = pixels[i + 2];
         
-        // 1. Key out dark pixels (dark obsidian stone or singularity centre)
-        if (r < 55 && g < 55 && b < 55) {
-          pixels[i + 3] = 0; // Alpha = 0
-          continue;
-        }
-
-        // 2. Key out mock checkerboard pattern (grayscale pixels that are light/medium grey or white)
         int maxVal = math.max(r, math.max(g, b));
         int minVal = math.min(r, math.min(g, b));
-        if (maxVal - minVal < 12) {
-          if (maxVal > 50) {
-            pixels[i + 3] = 0; // Make transparent!
-          }
+        int diff = maxVal - minVal;
+
+        // Grayscale check (covers any shade of grey/white checkerboard)
+        // OR extremely dark pixels (black space / singularity core)
+        if (diff < 35 || maxVal < 35) {
+          pixels[i + 3] = 0; // Alpha = 0
         }
       }
 
