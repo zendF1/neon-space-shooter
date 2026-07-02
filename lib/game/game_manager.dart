@@ -663,7 +663,7 @@ class GameManager extends ChangeNotifier {
     blackHoleSpawnTimer -= deltaTime;
     if (blackHoleSpawnTimer <= 0) {
       double bhX = 60.0 + _random.nextDouble() * (screenWidth - 120.0);
-      double bhY = 80.0 + _random.nextDouble() * 120.0;
+      double bhY = 100.0 + _random.nextDouble() * (screenHeight - 250.0);
       blackHoles.add(BlackHole(position: Offset(bhX, bhY)));
       blackHoleSpawnTimer = 18.0 + _random.nextDouble() * 10.0;
       floatingTexts.add(FloatingText(
@@ -717,7 +717,7 @@ class GameManager extends ChangeNotifier {
       spaceship.positionY += pull.dy;
     }
     spaceship.positionX = spaceship.positionX.clamp(20.0, screenWidth - 20.0);
-    spaceship.positionY = spaceship.positionY.clamp(screenHeight * 0.40, screenHeight - 40.0);
+    spaceship.positionY = spaceship.positionY.clamp(40.0, screenHeight - 40.0);
     spaceship.updatePowerUps(deltaTime);
 
     // Continuous Ultimate Beam damage
@@ -901,7 +901,7 @@ class GameManager extends ChangeNotifier {
       for (var bh in blackHoles) {
         drone.position += bh.getPullForce(drone.position, enemyDeltaTime);
       }
-      drone.update(enemyDeltaTime, screenWidth);
+      drone.update(enemyDeltaTime, screenWidth, screenHeight);
       
       // Auto-shoot for drones
       if (drone.shootCooldown <= 0 && !drone.isDestroyed) {

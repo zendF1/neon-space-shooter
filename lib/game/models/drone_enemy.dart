@@ -31,7 +31,7 @@ class DroneEnemy {
   })  : maxHealth = health,
         initialY = position.dy;
 
-  void update(double deltaTime, double screenWidth, {double? spaceshipX}) {
+  void update(double deltaTime, double screenWidth, double screenHeight, {double? spaceshipX}) {
     if (slowTimer > 0) {
       slowTimer -= deltaTime;
       deltaTime *= 0.5; // Slow down movement and internal timers by 50%
@@ -40,19 +40,15 @@ class DroneEnemy {
 
     switch (type) {
       case DroneType.boss:
-        // Boss moves side-to-side and performs occasional swoops towards the player
-        double swoopY = 0.0;
-        double cycle = _timeElapsed % 12.0; // 12 second loop
-        if (cycle > 7.0 && cycle < 11.0) {
-          // Swoop down for 4 seconds
-          double progress = (cycle - 7.0) / 4.0; // 0.0 to 1.0
-          swoopY = 130.0 * math.sin(progress * math.pi); // swoop max depth 130px
-        }
-
-        position += Offset(velocity.dx * deltaTime, 0.0);
+        // Free space-flight trajectory: targets entire width and upper 70% of screen height
+        double targetX = (screenWidth / 2) + (screenWidth / 3) * math.sin(_timeElapsed * 0.8) + (screenWidth / 6) * math.cos(_timeElapsed * 1.7);
+        double maxBossY = screenHeight > 100.0 ? screenHeight * 0.70 : 450.0;
+        double targetY = (maxBossY * 0.55) + (maxBossY * 0.4) * math.sin(_timeElapsed * 0.5) + (maxBossY * 0.1) * math.cos(_timeElapsed * 1.2);
+        
+        // Smoothly interpolate position towards dynamic target for a lifelike space-flight look
         position = Offset(
-          position.dx,
-          initialY + 25.0 * math.sin(_timeElapsed * 1.5) + swoopY,
+          position.dx + (targetX - position.dx) * 1.6 * deltaTime,
+          position.dy + (targetY - position.dy) * 1.6 * deltaTime,
         );
         break;
 

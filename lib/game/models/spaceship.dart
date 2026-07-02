@@ -41,7 +41,6 @@ class Spaceship {
     
     // Keep spaceship within screen boundaries with margin
     double halfWidth = width / 2;
-    double halfHeight = height / 2;
     
     if (positionX - halfWidth < 12.0) {
       positionX = 12.0 + halfWidth;
@@ -49,13 +48,13 @@ class Spaceship {
       positionX = screenWidth - 12.0 - halfWidth;
     }
 
-    // Limit Y-movement: player can move in the lower 60% of the screen
-    double minY = screenHeight * 0.40;
+    // Limit Y-movement: player can move freely anywhere on the screen
+    double minY = 40.0;
     double maxY = screenHeight - 40.0;
-    if (positionY - halfHeight < minY) {
-      positionY = minY + halfHeight;
-    } else if (positionY + halfHeight > maxY) {
-      positionY = maxY - halfHeight;
+    if (positionY < minY) {
+      positionY = minY;
+    } else if (positionY > maxY) {
+      positionY = maxY;
     }
   }
 
