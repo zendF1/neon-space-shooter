@@ -191,30 +191,31 @@ class GameManager extends ChangeNotifier {
   bool spritesLoaded = false;
 
   Future<void> _preloadSprites() async {
-    try {
-      final list = {
-        'ship_pink': 'assets/images/ship_pink.png',
-        'ship_cyan': 'assets/images/ship_cyan.png',
-        'ship_gold': 'assets/images/ship_gold.png',
-        'drone_normal': 'assets/images/drone_normal.png',
-        'drone_armored': 'assets/images/drone_armored.png',
-        'drone_explosive': 'assets/images/drone_explosive.png',
-        'drone_boss': 'assets/images/drone_boss.png',
-        'coin': 'assets/images/coin.png',
-        'bullet_player': 'assets/images/bullet_player.png',
-        'bullet_enemy': 'assets/images/bullet_enemy.png',
-        'missile': 'assets/images/missile.png',
-        'asteroid': 'assets/images/asteroid.png',
-        'black_hole': 'assets/images/black_hole.png',
-      };
-      for (var entry in list.entries) {
+    final list = {
+      'ship_pink': 'assets/images/ship_pink.png',
+      'ship_cyan': 'assets/images/ship_cyan.png',
+      'ship_gold': 'assets/images/ship_gold.png',
+      'drone_normal': 'assets/images/drone_normal.png',
+      'drone_armored': 'assets/images/drone_armored.png',
+      'drone_explosive': 'assets/images/drone_explosive.png',
+      'drone_boss': 'assets/images/drone_boss.png',
+      'coin': 'assets/images/coin.png',
+      'bullet_player': 'assets/images/bullet_player.png',
+      'bullet_enemy': 'assets/images/bullet_enemy.png',
+      'missile': 'assets/images/missile.png',
+      'asteroid': 'assets/images/asteroid.png',
+      'black_hole': 'assets/images/black_hole.png',
+    };
+    for (var entry in list.entries) {
+      try {
         final rawImg = await _loadSprite(entry.value);
-        spriteImages[entry.key] = await _makeBackgroundTransparent(rawImg);
+        final processedImg = await _makeBackgroundTransparent(rawImg);
+        spriteImages[entry.key] = processedImg;
+      } catch (e) {
+        debugPrint("Error loading sprite ${entry.key}: $e");
       }
-      spritesLoaded = true;
-    } catch (e) {
-      // Fail silently
     }
+    spritesLoaded = true;
   }
 
   Future<ui.Image> _makeBackgroundTransparent(ui.Image image) async {

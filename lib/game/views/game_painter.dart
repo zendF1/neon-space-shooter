@@ -617,24 +617,43 @@ class GamePainter extends CustomPainter {
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6.0);
       canvas.drawCircle(wm.position, radius * 1.6, glow);
 
-      // Core white engine
-      final Paint core = Paint()
-        ..color = Colors.white
-        ..style = PaintingStyle.fill;
-      canvas.drawCircle(wm.position, radius * 0.5, core);
+      String spriteKey = 'drone_normal';
+      if (wm.id == 'drone_magnet') {
+        spriteKey = 'drone_armored';
+      } else if (wm.id == 'drone_ice') {
+        spriteKey = 'drone_explosive';
+      }
 
-      // Wing borders
-      final Paint wingPaint = Paint()
-        ..color = wm.color
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.0;
+      if (manager.spritesLoaded && manager.spriteImages.containsKey(spriteKey)) {
+        final ui.Image? img = manager.spriteImages[spriteKey];
+        if (img != null) {
+          canvas.drawImageRect(
+            img,
+            Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()),
+            Rect.fromCenter(center: wm.position, width: radius * 3.0, height: radius * 2.5),
+            Paint()..blendMode = BlendMode.screen,
+          );
+        }
+      } else {
+        // Fallback: Core white engine
+        final Paint core = Paint()
+          ..color = Colors.white
+          ..style = PaintingStyle.fill;
+        canvas.drawCircle(wm.position, radius * 0.5, core);
 
-      Path wingPath = Path();
-      wingPath.moveTo(wm.position.dx, wm.position.dy - radius);
-      wingPath.lineTo(wm.position.dx - radius, wm.position.dy + radius * 0.6);
-      wingPath.lineTo(wm.position.dx + radius, wm.position.dy + radius * 0.6);
-      wingPath.close();
-      canvas.drawPath(wingPath, wingPaint);
+        // Wing borders
+        final Paint wingPaint = Paint()
+          ..color = wm.color
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.0;
+
+        Path wingPath = Path();
+        wingPath.moveTo(wm.position.dx, wm.position.dy - radius);
+        wingPath.lineTo(wm.position.dx - radius, wm.position.dy + radius * 0.6);
+        wingPath.lineTo(wm.position.dx + radius, wm.position.dy + radius * 0.6);
+        wingPath.close();
+        canvas.drawPath(wingPath, wingPaint);
+      }
     }
   }
 
