@@ -204,6 +204,8 @@ class GameManager extends ChangeNotifier {
         'bullet_player': 'assets/images/bullet_player.png',
         'bullet_enemy': 'assets/images/bullet_enemy.png',
         'missile': 'assets/images/missile.png',
+        'asteroid': 'assets/images/asteroid.png',
+        'black_hole': 'assets/images/black_hole.png',
       };
       for (var entry in list.entries) {
         final rawImg = await _loadSprite(entry.value);

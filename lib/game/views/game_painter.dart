@@ -270,8 +270,8 @@ class GamePainter extends CustomPainter {
       if (manager.spritesLoaded && manager.spriteImages.containsKey('bullet_player')) {
         final ui.Image? img = manager.spriteImages['bullet_player'];
         if (img != null) {
-          double drawW = laser.width < 10.0 ? 32.0 : laser.width * 2.6;
-          double drawH = laser.height * 2.4;
+          double drawW = laser.width < 10.0 ? 64.0 : laser.width * 5.2;
+          double drawH = laser.height * 4.8;
           canvas.drawImageRect(
             img,
             Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()),
@@ -284,16 +284,17 @@ class GamePainter extends CustomPainter {
           );
         }
       } else {
+        Rect drawRect = Rect.fromCenter(center: laser.position, width: laser.width * 2.0, height: laser.height * 2.0);
         _bulletPaint.color = laser.color;
         _glowPaint.color = laser.glowColor;
         _glowPaint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 6.0);
-        canvas.drawRect(laser.rect, _glowPaint);
-        canvas.drawRect(laser.rect, _bulletPaint);
+        canvas.drawRect(drawRect, _glowPaint);
+        canvas.drawRect(drawRect, _bulletPaint);
 
         // Core white brightness
         _bulletPaint.color = Colors.white;
         canvas.drawRect(
-          Rect.fromLTWH(laser.rect.left + 1, laser.rect.top, laser.rect.width - 2, laser.rect.height),
+          Rect.fromLTWH(drawRect.left + 2, drawRect.top, drawRect.width - 4, drawRect.height),
           _bulletPaint,
         );
       }
@@ -304,8 +305,8 @@ class GamePainter extends CustomPainter {
       if (manager.spritesLoaded && manager.spriteImages.containsKey('bullet_enemy')) {
         final ui.Image? img = manager.spriteImages['bullet_enemy'];
         if (img != null) {
-          double drawW = laser.width < 10.0 ? 28.0 : laser.width * 2.4;
-          double drawH = laser.height * 1.5;
+          double drawW = laser.width < 10.0 ? 56.0 : laser.width * 4.8;
+          double drawH = laser.height * 3.0;
           canvas.drawImageRect(
             img,
             Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()),
@@ -318,16 +319,17 @@ class GamePainter extends CustomPainter {
           );
         }
       } else {
+        Rect drawRect = Rect.fromCenter(center: laser.position, width: laser.width * 2.0, height: laser.height * 2.0);
         _bulletPaint.color = laser.color;
         _glowPaint.color = laser.glowColor;
         _glowPaint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 6.0);
-        canvas.drawRect(laser.rect, _glowPaint);
-        canvas.drawRect(laser.rect, _bulletPaint);
+        canvas.drawRect(drawRect, _glowPaint);
+        canvas.drawRect(drawRect, _bulletPaint);
 
         // Core brightness
         _bulletPaint.color = Colors.white;
         canvas.drawRect(
-          Rect.fromLTWH(laser.rect.left + 1, laser.rect.top, laser.rect.width - 2, laser.rect.height),
+          Rect.fromLTWH(drawRect.left + 2, drawRect.top, drawRect.width - 4, drawRect.height),
           _bulletPaint,
         );
       }
@@ -644,31 +646,48 @@ class GamePainter extends CustomPainter {
 
       double r = ast.size / 2;
 
-      // Dark solid rocky core
-      final Paint corePaint = Paint()
-        ..color = const Color(0xFF1D0E02)
-        ..style = PaintingStyle.fill;
-      
-      Path rockPath = Path();
-      rockPath.moveTo(0, -r);
-      rockPath.lineTo(r * 0.8, -r * 0.5);
-      rockPath.lineTo(r, r * 0.3);
-      rockPath.lineTo(r * 0.4, r * 0.9);
-      rockPath.lineTo(-r * 0.5, r);
-      rockPath.lineTo(-r * 0.9, -r * 0.2);
-      rockPath.close();
-      canvas.drawPath(rockPath, corePaint);
+      // Draw an orange neon glow border ring to make it stand out!
+      final Paint glowPaint = Paint()
+        ..color = Colors.orangeAccent.withOpacity(0.25)
+        ..style = PaintingStyle.fill
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10.0);
+      canvas.drawCircle(Offset.zero, r * 1.3, glowPaint);
 
-      // Orange glowing outline (cracked magma lava theme)
-      final Paint outlinePaint = Paint()
-        ..color = Colors.orangeAccent
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5;
-      canvas.drawPath(rockPath, outlinePaint);
+      if (manager.spritesLoaded && manager.spriteImages.containsKey('asteroid')) {
+        final ui.Image? img = manager.spriteImages['asteroid'];
+        if (img != null) {
+          canvas.drawImageRect(
+            img,
+            Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()),
+            Rect.fromCenter(center: Offset.zero, width: ast.size * 1.5, height: ast.size * 1.5),
+            Paint()..blendMode = BlendMode.screen,
+          );
+        }
+      } else {
+        // Fallback vector drawing
+        final Paint corePaint = Paint()
+          ..color = const Color(0xFF1D0E02)
+          ..style = PaintingStyle.fill;
+        
+        Path rockPath = Path();
+        rockPath.moveTo(0, -r);
+        rockPath.lineTo(r * 0.8, -r * 0.5);
+        rockPath.lineTo(r, r * 0.3);
+        rockPath.lineTo(r * 0.4, r * 0.9);
+        rockPath.lineTo(-r * 0.5, r);
+        rockPath.lineTo(-r * 0.9, -r * 0.2);
+        rockPath.close();
+        canvas.drawPath(rockPath, corePaint);
 
-      // Random lava cracks
-      canvas.drawLine(Offset(-r * 0.2, -r * 0.2), Offset(r * 0.3, r * 0.3), outlinePaint);
-      canvas.drawLine(Offset(r * 0.3, -r * 0.1), Offset(-r * 0.4, r * 0.4), outlinePaint);
+        final Paint outlinePaint = Paint()
+          ..color = Colors.orangeAccent
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.0;
+        canvas.drawPath(rockPath, outlinePaint);
+
+        canvas.drawLine(Offset(-r * 0.2, -r * 0.2), Offset(r * 0.3, r * 0.3), outlinePaint);
+        canvas.drawLine(Offset(r * 0.3, -r * 0.1), Offset(-r * 0.4, r * 0.4), outlinePaint);
+      }
 
       canvas.restore();
     }
@@ -677,39 +696,60 @@ class GamePainter extends CustomPainter {
   void _drawBlackHoles(Canvas canvas) {
     for (var bh in manager.blackHoles) {
       double timeFactor = DateTime.now().millisecondsSinceEpoch * 0.005;
-      
-      // 3 rotating gravitational distortion vortex layers
-      for (int i = 0; i < 3; i++) {
-        double angle = timeFactor + i * (math.pi / 3.0);
-        double r = bh.radius * (0.6 + i * 0.3);
-        
-        canvas.save();
-        canvas.translate(bh.position.dx, bh.position.dy);
-        canvas.rotate(angle);
-        
-        final Paint ringPaint = Paint()
-          ..color = const Color(0xFFBD00FF).withOpacity(0.15 + (i * 0.05))
+
+      // 1. Draw glowing space nebula behind black hole to make it super prominent
+      final Paint gravityGlow = Paint()
+        ..color = const Color(0xFFBD00FF).withOpacity(0.3)
+        ..style = PaintingStyle.fill
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 20.0);
+      canvas.drawCircle(bh.position, bh.radius * 1.2, gravityGlow);
+
+      if (manager.spritesLoaded && manager.spriteImages.containsKey('black_hole')) {
+        final ui.Image? img = manager.spriteImages['black_hole'];
+        if (img != null) {
+          canvas.save();
+          canvas.translate(bh.position.dx, bh.position.dy);
+          canvas.rotate(-timeFactor * 0.6); // rotate opposite for interesting parallax effect
+          canvas.drawImageRect(
+            img,
+            Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()),
+            Rect.fromCenter(center: Offset.zero, width: bh.radius * 2.6, height: bh.radius * 2.6),
+            Paint()..blendMode = BlendMode.screen,
+          );
+          canvas.restore();
+        }
+      } else {
+        // Fallback rotating layers
+        for (int i = 0; i < 3; i++) {
+          double angle = timeFactor + i * (math.pi / 3.0);
+          double r = bh.radius * (0.6 + i * 0.3);
+          
+          canvas.save();
+          canvas.translate(bh.position.dx, bh.position.dy);
+          canvas.rotate(angle);
+          
+          final Paint ringPaint = Paint()
+            ..color = const Color(0xFFBD00FF).withOpacity(0.15 + (i * 0.05))
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 2.0
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.0);
+          
+          canvas.drawOval(Rect.fromCenter(center: Offset.zero, width: r * 2.2, height: r * 0.7), ringPaint);
+          canvas.restore();
+        }
+
+        final Paint eventHorizon = Paint()
+          ..color = Colors.black
+          ..style = PaintingStyle.fill;
+        canvas.drawCircle(bh.position, bh.radius * 0.4, eventHorizon);
+
+        final Paint borderGlow = Paint()
+          ..color = const Color(0xFFBD00FF)
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 2.0
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.0);
-        
-        canvas.drawOval(Rect.fromCenter(center: Offset.zero, width: r * 2.2, height: r * 0.7), ringPaint);
-        canvas.restore();
+          ..strokeWidth = 2.5
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4.0);
+        canvas.drawCircle(bh.position, bh.radius * 0.4, borderGlow);
       }
-
-      // Solid black Event Horizon core
-      final Paint eventHorizon = Paint()
-        ..color = Colors.black
-        ..style = PaintingStyle.fill;
-      canvas.drawCircle(bh.position, bh.radius * 0.4, eventHorizon);
-
-      // Neon purple boundary ring glow
-      final Paint borderGlow = Paint()
-        ..color = const Color(0xFFBD00FF)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.5
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4.0);
-      canvas.drawCircle(bh.position, bh.radius * 0.4, borderGlow);
     }
   }
 
