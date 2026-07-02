@@ -267,6 +267,12 @@ class GamePainter extends CustomPainter {
   void _drawLasers(Canvas canvas) {
     // Player bullets
     for (var laser in manager.laserBullets) {
+      canvas.save();
+      canvas.translate(laser.position.dx, laser.position.dy);
+      // Rotate bullet to align with its velocity vector
+      double angle = math.atan2(laser.velocity.dy, laser.velocity.dx) + math.pi / 2;
+      canvas.rotate(angle);
+
       if (manager.spritesLoaded && manager.spriteImages.containsKey('bullet_player')) {
         final ui.Image? img = manager.spriteImages['bullet_player'];
         if (img != null) {
@@ -276,7 +282,7 @@ class GamePainter extends CustomPainter {
             img,
             Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()),
             Rect.fromCenter(
-              center: laser.position,
+              center: Offset.zero,
               width: drawW,
               height: drawH,
             ),
@@ -284,7 +290,8 @@ class GamePainter extends CustomPainter {
           );
         }
       } else {
-        Rect drawRect = Rect.fromCenter(center: laser.position, width: laser.width * 2.0, height: laser.height * 2.0);
+        // Fallback: draw 2x larger vector bullets
+        Rect drawRect = Rect.fromCenter(center: Offset.zero, width: laser.width * 2.0, height: laser.height * 2.0);
         _bulletPaint.color = laser.color;
         _glowPaint.color = laser.glowColor;
         _glowPaint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 6.0);
@@ -298,10 +305,17 @@ class GamePainter extends CustomPainter {
           _bulletPaint,
         );
       }
+      canvas.restore();
     }
 
     // Enemy bullets
     for (var laser in manager.enemyLasers) {
+      canvas.save();
+      canvas.translate(laser.position.dx, laser.position.dy);
+      // Rotate bullet to align with its velocity vector
+      double angle = math.atan2(laser.velocity.dy, laser.velocity.dx) + math.pi / 2;
+      canvas.rotate(angle);
+
       if (manager.spritesLoaded && manager.spriteImages.containsKey('bullet_enemy')) {
         final ui.Image? img = manager.spriteImages['bullet_enemy'];
         if (img != null) {
@@ -311,7 +325,7 @@ class GamePainter extends CustomPainter {
             img,
             Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()),
             Rect.fromCenter(
-              center: laser.position,
+              center: Offset.zero,
               width: drawW,
               height: drawH,
             ),
@@ -319,20 +333,22 @@ class GamePainter extends CustomPainter {
           );
         }
       } else {
-        Rect drawRect = Rect.fromCenter(center: laser.position, width: laser.width * 2.0, height: laser.height * 2.0);
+        // Fallback: draw 2x larger vector bullets
+        Rect drawRect = Rect.fromCenter(center: Offset.zero, width: laser.width * 2.0, height: laser.height * 2.0);
         _bulletPaint.color = laser.color;
         _glowPaint.color = laser.glowColor;
         _glowPaint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 6.0);
         canvas.drawRect(drawRect, _glowPaint);
         canvas.drawRect(drawRect, _bulletPaint);
 
-        // Core brightness
+        // Core white brightness
         _bulletPaint.color = Colors.white;
         canvas.drawRect(
           Rect.fromLTWH(drawRect.left + 2, drawRect.top, drawRect.width - 4, drawRect.height),
           _bulletPaint,
         );
       }
+      canvas.restore();
     }
   }
 
