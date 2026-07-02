@@ -736,7 +736,7 @@ class ShopOverlay extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20.0),
       width: 330.0,
       child: DefaultTabController(
-        length: 3,
+        length: 4,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -790,6 +790,7 @@ class ShopOverlay extends StatelessWidget {
               tabs: [
                 Tab(text: "SHIPS"),
                 Tab(text: "LASERS"),
+                Tab(text: "DRONES"),
                 Tab(text: "UPGRADES"),
               ],
             ),
@@ -884,7 +885,58 @@ class ShopOverlay extends StatelessWidget {
                       );
                     },
                   ),
-                  // Tab 3: Upgrades
+                  // Tab 3: Drones & Active Skills
+                  ListenableBuilder(
+                    listenable: manager,
+                    builder: (context, child) {
+                      return ListView(
+                        shrinkWrap: true,
+                        children: [
+                          _buildArsenalItem(
+                            id: 'drone_laser',
+                            name: "Laser Wingman",
+                            desc: "Standard companion drone firing side lasers.",
+                            cost: 200,
+                            color: const Color(0xFFFF007F),
+                            category: 'wingman',
+                          ),
+                          _buildArsenalItem(
+                            id: 'drone_ice',
+                            name: "Ice Wingman",
+                            desc: "Fires slowing cyan ice beams (slows enemies by 50%).",
+                            cost: 400,
+                            color: const Color(0xFF00E5FF),
+                            category: 'wingman',
+                          ),
+                          _buildArsenalItem(
+                            id: 'drone_magnet',
+                            name: "Magnet Wingman",
+                            desc: "Pulls nearby coins and gems magnetically.",
+                            cost: 600,
+                            color: const Color(0xFF00FF66),
+                            category: 'wingman',
+                          ),
+                          _buildArsenalItem(
+                            id: 'hyper_beam',
+                            name: "Hyper Beam (ULTIMATE)",
+                            desc: "Active skill: fires massive vertical laser beam (3s).",
+                            cost: 0,
+                            color: Colors.purpleAccent,
+                            category: 'ultimate',
+                          ),
+                          _buildArsenalItem(
+                            id: 'shield_burst',
+                            name: "Shield Burst (ULTIMATE)",
+                            desc: "Active skill: clears bullets, deals 6 screen damage.",
+                            cost: 350,
+                            color: Colors.cyanAccent,
+                            category: 'ultimate',
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                  // Tab 4: Upgrades
                   ListenableBuilder(
                     listenable: manager,
                     builder: (context, child) {
@@ -961,6 +1013,221 @@ class ShopOverlay extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildArsenalItem({
+    required String id,
+    required String name,
+    required String desc,
+    required int cost,
+    required Color color,
+    required String category, // 'wingman' or 'ultimate'
+  }) {
+    bool unlocked = manager.isUnlocked(id) || id == 'hyper_beam' || id == 'none';
+    
+    // Check equipped status:
+    bool isEquipped = false;
+    if (category == 'ultimate') {
+      isEquipped = manager.equippedUltimate == id;
+    } else {
+      isEquipped = manager.equippedLeftWingman == id || manager.equippedRightWingman == id;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12.0),
+      padding: const EdgeInsets.all(10.0),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.03),
+        borderRadius: BorderRadius.circular(10.0),
+        border: Border.all(
+          color: isEquipped ? color.withOpacity(0.5) : Colors.white.withOpacity(0.05),
+          width: isEquipped ? 1.5 : 1.0,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 32.0,
+                height: 32.0,
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.2),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: color, width: 2.0),
+                ),
+                child: Center(
+                  child: Icon(
+                    category == 'ultimate' ? Icons.electric_bolt : Icons.adjust,
+                    color: color,
+                    size: 16.0,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12.0),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      style: TextStyle(
+                        color: color,
+                        fontSize: 13.0,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 2.0),
+                    Text(
+                      desc,
+                      style: const TextStyle(
+                        color: Colors.white54,
+                        fontSize: 10.0,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+          const SizedBox(height: 8.0),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              if (!unlocked)
+                Row(
+                  children: [
+                    const Text("👛 ", style: TextStyle(fontSize: 12.0)),
+                    Text(
+                      "$cost Coins",
+                      style: const TextStyle(color: Colors.amberAccent, fontSize: 12.0, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                )
+              else
+                const SizedBox(),
+              _buildArsenalActionButtons(id, cost, unlocked, category, color),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildArsenalActionButtons(
+    String id,
+    int cost,
+    bool unlocked,
+    String category,
+    Color color,
+  ) {
+    if (!unlocked) {
+      bool canAfford = manager.coins >= cost;
+      return ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: canAfford ? Colors.amberAccent : Colors.white12,
+          foregroundColor: canAfford ? Colors.black : Colors.white30,
+          surfaceTintColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
+          minimumSize: Size.zero,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(6.0),
+          ),
+        ),
+        onPressed: canAfford ? () => manager.buyCosmetic(id, cost) : null,
+        child: Text(
+          "BUY",
+          style: const TextStyle(fontSize: 10.0, fontWeight: FontWeight.w900),
+        ),
+      );
+    }
+
+    if (category == 'ultimate') {
+      bool equipped = manager.equippedUltimate == id;
+      return TextButton(
+        style: TextButton.styleFrom(
+          backgroundColor: equipped ? color.withOpacity(0.2) : Colors.white.withOpacity(0.06),
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 6.0),
+          minimumSize: Size.zero,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(6.0),
+            side: BorderSide(color: equipped ? color : Colors.transparent),
+          ),
+        ),
+        onPressed: equipped ? null : () => manager.equipCosmetic(id, 'ultimate'),
+        child: Text(
+          equipped ? "EQUIPPED" : "EQUIP",
+          style: const TextStyle(fontSize: 10.0, fontWeight: FontWeight.bold),
+        ),
+      );
+    }
+
+    // Wingmen slots left/right
+    bool isLeft = manager.equippedLeftWingman == id;
+    bool isRight = manager.equippedRightWingman == id;
+
+    return Row(
+      children: [
+        // Left Wing
+        GestureDetector(
+          onTap: () {
+            if (isLeft) {
+              manager.equipCosmetic('none', 'wingman_left');
+            } else {
+              manager.equipCosmetic(id, 'wingman_left');
+              if (isRight) manager.equipCosmetic('none', 'wingman_right');
+            }
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 6.0),
+            margin: const EdgeInsets.only(right: 6.0),
+            decoration: BoxDecoration(
+              color: isLeft ? Colors.cyan.withOpacity(0.3) : Colors.white.withOpacity(0.05),
+              border: Border.all(color: isLeft ? Colors.cyan : Colors.white10),
+              borderRadius: BorderRadius.circular(4.0),
+            ),
+            child: Text(
+              isLeft ? "LEFT ACTIVE" : "EQUIP LEFT",
+              style: TextStyle(
+                color: isLeft ? Colors.white : Colors.white70,
+                fontSize: 9.0,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+        // Right Wing
+        GestureDetector(
+          onTap: () {
+            if (isRight) {
+              manager.equipCosmetic('none', 'wingman_right');
+            } else {
+              manager.equipCosmetic(id, 'wingman_right');
+              if (isLeft) manager.equipCosmetic('none', 'wingman_left');
+            }
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 6.0),
+            decoration: BoxDecoration(
+              color: isRight ? Colors.cyan.withOpacity(0.3) : Colors.white.withOpacity(0.05),
+              border: Border.all(color: isRight ? Colors.cyan : Colors.white10),
+              borderRadius: BorderRadius.circular(4.0),
+            ),
+            child: Text(
+              isRight ? "RIGHT ACTIVE" : "EQUIP RIGHT",
+              style: TextStyle(
+                color: isRight ? Colors.white : Colors.white70,
+                fontSize: 9.0,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 

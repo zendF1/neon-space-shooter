@@ -34,14 +34,26 @@ class GamePainter extends CustomPainter {
     // 2. Stars scrolling background
     _drawStarfield(canvas, size);
 
+    // 2b. Draw Gravity Black Holes
+    _drawBlackHoles(canvas);
+
+    // 2c. Draw Asteroids
+    _drawAsteroids(canvas);
+
     // 3. Power-ups
     _drawPowerUps(canvas);
 
     // 4. Coins
     _drawCoins(canvas);
 
+    // 4b. Draw Wingmen companion drones
+    _drawWingmen(canvas);
+
     // 5. Player spaceship & Thrusters
     _drawSpaceship(canvas);
+
+    // 5b. Draw Ultimate Skill effects
+    _drawUltimateEffects(canvas);
 
     // 6. Laser bullets (player and enemy)
     _drawLasers(canvas);
@@ -589,6 +601,179 @@ class GamePainter extends CustomPainter {
         canvas,
         ft.position - Offset(textPainter.width / 2, textPainter.height / 2),
       );
+    }
+  }
+
+  void _drawWingmen(Canvas canvas) {
+    for (var wm in manager.wingmen) {
+      double radius = 10.0;
+      
+      // Outer neon wing glow
+      final Paint glow = Paint()
+        ..color = wm.color.withOpacity(0.4)
+        ..style = PaintingStyle.fill
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6.0);
+      canvas.drawCircle(wm.position, radius * 1.6, glow);
+
+      // Core white engine
+      final Paint core = Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(wm.position, radius * 0.5, core);
+
+      // Wing borders
+      final Paint wingPaint = Paint()
+        ..color = wm.color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.0;
+
+      Path wingPath = Path();
+      wingPath.moveTo(wm.position.dx, wm.position.dy - radius);
+      wingPath.lineTo(wm.position.dx - radius, wm.position.dy + radius * 0.6);
+      wingPath.lineTo(wm.position.dx + radius, wm.position.dy + radius * 0.6);
+      wingPath.close();
+      canvas.drawPath(wingPath, wingPaint);
+    }
+  }
+
+  void _drawAsteroids(Canvas canvas) {
+    for (var ast in manager.asteroids) {
+      canvas.save();
+      canvas.translate(ast.position.dx, ast.position.dy);
+      canvas.rotate(ast.rotationAngle);
+
+      double r = ast.size / 2;
+
+      // Dark solid rocky core
+      final Paint corePaint = Paint()
+        ..color = const Color(0xFF1D0E02)
+        ..style = PaintingStyle.fill;
+      
+      Path rockPath = Path();
+      rockPath.moveTo(0, -r);
+      rockPath.lineTo(r * 0.8, -r * 0.5);
+      rockPath.lineTo(r, r * 0.3);
+      rockPath.lineTo(r * 0.4, r * 0.9);
+      rockPath.lineTo(-r * 0.5, r);
+      rockPath.lineTo(-r * 0.9, -r * 0.2);
+      rockPath.close();
+      canvas.drawPath(rockPath, corePaint);
+
+      // Orange glowing outline (cracked magma lava theme)
+      final Paint outlinePaint = Paint()
+        ..color = Colors.orangeAccent
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5;
+      canvas.drawPath(rockPath, outlinePaint);
+
+      // Random lava cracks
+      canvas.drawLine(Offset(-r * 0.2, -r * 0.2), Offset(r * 0.3, r * 0.3), outlinePaint);
+      canvas.drawLine(Offset(r * 0.3, -r * 0.1), Offset(-r * 0.4, r * 0.4), outlinePaint);
+
+      canvas.restore();
+    }
+  }
+
+  void _drawBlackHoles(Canvas canvas) {
+    for (var bh in manager.blackHoles) {
+      double timeFactor = DateTime.now().millisecondsSinceEpoch * 0.005;
+      
+      // 3 rotating gravitational distortion vortex layers
+      for (int i = 0; i < 3; i++) {
+        double angle = timeFactor + i * (math.pi / 3.0);
+        double r = bh.radius * (0.6 + i * 0.3);
+        
+        canvas.save();
+        canvas.translate(bh.position.dx, bh.position.dy);
+        canvas.rotate(angle);
+        
+        final Paint ringPaint = Paint()
+          ..color = const Color(0xFFBD00FF).withOpacity(0.15 + (i * 0.05))
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.0
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.0);
+        
+        canvas.drawOval(Rect.fromCenter(center: Offset.zero, width: r * 2.2, height: r * 0.7), ringPaint);
+        canvas.restore();
+      }
+
+      // Solid black Event Horizon core
+      final Paint eventHorizon = Paint()
+        ..color = Colors.black
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(bh.position, bh.radius * 0.4, eventHorizon);
+
+      // Neon purple boundary ring glow
+      final Paint borderGlow = Paint()
+        ..color = const Color(0xFFBD00FF)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.5
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4.0);
+      canvas.drawCircle(bh.position, bh.radius * 0.4, borderGlow);
+    }
+  }
+
+  void _drawUltimateEffects(Canvas canvas) {
+    if (manager.ultimateActiveDuration <= 0) return;
+
+    if (manager.equippedUltimate == 'hyper_beam') {
+      double shipX = manager.spaceship.positionX;
+      double shipY = manager.spaceship.positionY;
+
+      double width = 60.0;
+      double jitter = 4.0 * math.sin(DateTime.now().millisecondsSinceEpoch * 0.05);
+      double beamWidth = width + jitter;
+
+      Rect beamRect = Rect.fromLTRB(shipX - beamWidth / 2, 0.0, shipX + beamWidth / 2, shipY - 12.0);
+
+      // 1. Wide purple nebula glow
+      final Paint beamGlow = Paint()
+        ..color = const Color(0x77BD00FF)
+        ..style = PaintingStyle.fill
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12.0);
+      canvas.drawRect(beamRect, beamGlow);
+
+      // 2. Pure white core brightness
+      final Paint beamCore = Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.fill;
+      canvas.drawRect(
+        Rect.fromLTRB(shipX - beamWidth / 4, 0.0, shipX + beamWidth / 4, shipY - 12.0),
+        beamCore,
+      );
+
+      // 3. Magenta electricity borders
+      final Paint beamBorder = Paint()
+        ..color = const Color(0xFFFF00FF)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3.0;
+      canvas.drawRect(
+        Rect.fromLTRB(shipX - beamWidth / 2, 0.0, shipX + beamWidth / 2, shipY - 12.0),
+        beamBorder,
+      );
+    }
+    else if (manager.equippedUltimate == 'shield_burst') {
+      double elapsed = 3.0 - manager.ultimateActiveDuration;
+      double progress = (elapsed / 3.0).clamp(0.0, 1.0);
+      
+      double maxRadius = 350.0;
+      double currentRadius = progress * maxRadius;
+
+      Offset center = Offset(manager.spaceship.positionX, manager.spaceship.positionY);
+
+      // Expanding energy circle
+      final Paint waveGlow = Paint()
+        ..color = const Color(0x3300FFFF).withOpacity(0.3 * (1.0 - progress))
+        ..style = PaintingStyle.fill
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8.0);
+      canvas.drawCircle(center, currentRadius, waveGlow);
+
+      // Neon cyan border wave
+      final Paint waveRing = Paint()
+        ..color = const Color(0xFF00FFFF).withOpacity(1.0 - progress)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 4.0 - 2.0 * progress;
+      canvas.drawCircle(center, currentRadius, waveRing);
     }
   }
 

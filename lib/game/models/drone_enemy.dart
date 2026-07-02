@@ -13,6 +13,7 @@ class DroneEnemy {
   double shootCooldown;
   bool isDestroyed;
   final DroneType type;
+  double slowTimer = 0.0; // Slow down status effect
 
   // For trajectories
   double _timeElapsed = 0.0;
@@ -31,6 +32,10 @@ class DroneEnemy {
         initialY = position.dy;
 
   void update(double deltaTime, double screenWidth, {double? spaceshipX}) {
+    if (slowTimer > 0) {
+      slowTimer -= deltaTime;
+      deltaTime *= 0.5; // Slow down movement and internal timers by 50%
+    }
     _timeElapsed += deltaTime;
 
     switch (type) {

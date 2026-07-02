@@ -82,6 +82,9 @@ class _GameScreenState extends State<GameScreen>
                 // 3. Power-up Timers
                 _buildPowerUpIndicators(),
 
+                // 3b. Ultimate Skill Button
+                _buildUltimateButton(),
+
                 // 4. State overlays (Shop, Menu, Paused, GameOver, LevelComplete)
                 ListenableBuilder(
                   listenable: _manager,
@@ -398,6 +401,93 @@ class _GameScreenState extends State<GameScreen>
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildUltimateButton() {
+    return ListenableBuilder(
+      listenable: _manager,
+      builder: (context, child) {
+        if (_manager.state != GamePlayState.playing || _isShopOpen || _isLevelSelectOpen || _isAchievementsOpen) {
+          return const SizedBox();
+        }
+
+        bool isCooldown = _manager.ultimateCooldown > 0;
+        bool isActive = _manager.ultimateActiveDuration > 0;
+        double progress = isCooldown ? (_manager.ultimateCooldown / _manager.ultimateMaxCooldown) : 0.0;
+        
+        Color themeColor = _manager.equippedUltimate == 'hyper_beam' ? Colors.purpleAccent : Colors.cyanAccent;
+
+        return Positioned(
+          bottom: 110.0,
+          right: 20.0,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              GestureDetector(
+                onTap: isCooldown ? null : () => _manager.triggerUltimate(),
+                child: Container(
+                  width: 58.0,
+                  height: 58.0,
+                  decoration: BoxDecoration(
+                    color: isActive 
+                        ? themeColor.withOpacity(0.4) 
+                        : (isCooldown ? Colors.black45 : Colors.black87),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: isActive 
+                          ? Colors.white 
+                          : (isCooldown ? Colors.white24 : themeColor),
+                      width: isActive ? 2.5 : 1.5,
+                    ),
+                    boxShadow: [
+                      if (!isCooldown)
+                        BoxShadow(
+                          color: themeColor.withOpacity(0.5),
+                          blurRadius: isActive ? 15.0 : 8.0,
+                          spreadRadius: isActive ? 2.0 : 0.0,
+                        ),
+                    ],
+                  ),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      if (isCooldown)
+                        Positioned.fill(
+                          child: CircularProgressIndicator(
+                            value: progress,
+                            strokeWidth: 3.5,
+                            valueColor: AlwaysStoppedAnimation<Color>(themeColor.withOpacity(0.5)),
+                            backgroundColor: Colors.transparent,
+                          ),
+                        ),
+                      Icon(
+                        _manager.equippedUltimate == 'hyper_beam' 
+                            ? Icons.electric_bolt 
+                            : Icons.shield,
+                        color: isCooldown ? Colors.white38 : Colors.white,
+                        size: 26.0,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4.0),
+              Text(
+                isCooldown 
+                    ? "${_manager.ultimateCooldown.toStringAsFixed(1)}s"
+                    : (isActive ? "ACTIVE" : "ULTIMATE"),
+                style: TextStyle(
+                  color: isCooldown ? Colors.white38 : themeColor,
+                  fontSize: 10.0,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

@@ -13,6 +13,9 @@ import 'models/power_up.dart';
 import 'models/particle.dart';
 import 'models/coin.dart';
 import 'models/homing_missile.dart';
+import 'models/wingman.dart';
+import 'models/asteroid.dart';
+import 'models/black_hole.dart';
 import 'physics.dart';
 import 'level_manager.dart';
 import 'audio_controller.dart';
@@ -102,6 +105,23 @@ class GameManager extends ChangeNotifier {
   
   bool isEndlessMode = false;
   int endlessHighScore = 0;
+
+  // Wingmen Companion Drones
+  final List<Wingman> wingmen = [];
+  String equippedLeftWingman = 'none'; // 'none', 'drone_laser', 'drone_ice', 'drone_magnet'
+  String equippedRightWingman = 'none'; // 'none', 'drone_laser', 'drone_ice', 'drone_magnet'
+
+  // Hazards
+  final List<Asteroid> asteroids = [];
+  final List<BlackHole> blackHoles = [];
+  double asteroidSpawnTimer = 0.0;
+  double blackHoleSpawnTimer = 0.0;
+
+  // Ultimate Skill
+  String equippedUltimate = 'hyper_beam'; // 'hyper_beam', 'shield_burst'
+  double ultimateCooldown = 0.0;
+  double ultimateMaxCooldown = 15.0; // 15 seconds cooldown
+  double ultimateActiveDuration = 0.0; // Duration remaining of active skill (e.g. 3.0s for Hyper Beam)
 
   final AudioController audio = AudioController();
   final math.Random _random = math.Random();
@@ -245,7 +265,7 @@ class GameManager extends ChangeNotifier {
       maxUnlockedLevel = prefs.getInt('maxUnlockedLevel') ?? 1;
       equippedSpaceship = prefs.getString('equippedPaddle') ?? 'paddle_pink';
       equippedLaser = prefs.getString('equippedBall') ?? 'ball_white';
-      unlockedItems = prefs.getStringList('unlockedItems') ?? ['paddle_pink', 'ball_white'];
+      unlockedItems = prefs.getStringList('unlockedItems') ?? ['paddle_pink', 'ball_white', 'hyper_beam'];
       endlessHighScore = prefs.getInt('endlessHighScore') ?? 0;
 
       // Upgrades
@@ -253,6 +273,10 @@ class GameManager extends ChangeNotifier {
       homingMissileLevel = prefs.getInt('homingMissileLevel') ?? 0;
       shieldMaxLevel = prefs.getInt('shieldMaxLevel') ?? 1;
       magnetLevel = prefs.getInt('magnetLevel') ?? 0;
+
+      equippedLeftWingman = prefs.getString('equippedLeftWingman') ?? 'none';
+      equippedRightWingman = prefs.getString('equippedRightWingman') ?? 'none';
+      equippedUltimate = prefs.getString('equippedUltimate') ?? 'hyper_beam';
       
       // Load sprites
       await _preloadSprites();
@@ -274,6 +298,9 @@ class GameManager extends ChangeNotifier {
       await prefs.setString('equippedBall', equippedLaser);
       await prefs.setStringList('unlockedItems', unlockedItems);
       await prefs.setInt('endlessHighScore', endlessHighScore);
+      await prefs.setString('equippedLeftWingman', equippedLeftWingman);
+      await prefs.setString('equippedRightWingman', equippedRightWingman);
+      await prefs.setString('equippedUltimate', equippedUltimate);
     } catch (e) {
       // Fail silently
     }
@@ -347,11 +374,33 @@ class GameManager extends ChangeNotifier {
   }
 
   void equipCosmetic(String id, String category) {
-    if (!isUnlocked(id)) return;
+    if (!isUnlocked(id) && id != 'none' && id != 'hyper_beam') return;
     if (category == 'spaceship' || category == 'paddle') {
       equippedSpaceship = id;
     } else if (category == 'laser' || category == 'ball') {
       equippedLaser = id;
+    } else if (category == 'wingman_left') {
+      equippedLeftWingman = id;
+      wingmen.removeWhere((wm) => wm.side == WingmanSide.left);
+      if (id != 'none') {
+        wingmen.add(Wingman(
+          id: id,
+          side: WingmanSide.left,
+          position: Offset(spaceship.positionX - 36.0, spaceship.positionY + 12.0),
+        ));
+      }
+    } else if (category == 'wingman_right') {
+      equippedRightWingman = id;
+      wingmen.removeWhere((wm) => wm.side == WingmanSide.right);
+      if (id != 'none') {
+        wingmen.add(Wingman(
+          id: id,
+          side: WingmanSide.right,
+          position: Offset(spaceship.positionX + 36.0, spaceship.positionY + 12.0),
+        ));
+      }
+    } else if (category == 'ultimate') {
+      equippedUltimate = id;
     }
     saveGameStats();
     _applyCosmeticsToModels();
@@ -388,15 +437,6 @@ class GameManager extends ChangeNotifier {
     slowMotionTimer = 0.0;
     playerShootCooldown = 0.0;
 
-    fallingCoins.clear();
-    laserBullets.clear();
-    enemyLasers.clear();
-    drones.clear();
-    powerUps.clear();
-    floatingTexts.clear();
-    missiles.clear();
-    missileCooldown = 0.0;
-
     spaceship.positionX = screenWidth / 2;
     spaceship.positionY = screenHeight - 80.0;
     spaceship.shieldActive = false;
@@ -404,6 +444,7 @@ class GameManager extends ChangeNotifier {
     spaceship.tripleShotTimer = 0.0;
     spaceship.rapidFireTimer = 0.0;
     
+    _resetGameCollections();
     _applyCosmeticsToModels();
     _initStars();
 
@@ -522,19 +563,14 @@ class GameManager extends ChangeNotifier {
     slowMotionTimer = 0.0;
     playerShootCooldown = 0.0;
     
-    fallingCoins.clear();
-    laserBullets.clear();
-    enemyLasers.clear();
-    drones.clear();
-    powerUps.clear();
-    floatingTexts.clear();
-    
     spaceship.positionX = screenWidth / 2;
     spaceship.positionY = screenHeight - 80.0;
     spaceship.shieldActive = false;
+    spaceship.shieldHealth = 0;
     spaceship.tripleShotTimer = 0.0;
     spaceship.rapidFireTimer = 0.0;
     
+    _resetGameCollections();
     _applyCosmeticsToModels();
     drones.addAll(LevelManager.buildLevel(level, screenWidth));
     
@@ -543,6 +579,44 @@ class GameManager extends ChangeNotifier {
       audio.playBGM();
     });
     notifyListeners();
+  }
+
+  void _resetGameCollections() {
+    fallingCoins.clear();
+    laserBullets.clear();
+    enemyLasers.clear();
+    drones.clear();
+    powerUps.clear();
+    floatingTexts.clear();
+    missiles.clear();
+    missileCooldown = 0.0;
+
+    // Wingmen Companion Drones
+    wingmen.clear();
+    if (equippedLeftWingman != 'none') {
+      wingmen.add(Wingman(
+        id: equippedLeftWingman,
+        side: WingmanSide.left,
+        position: Offset(spaceship.positionX - 36.0, spaceship.positionY + 12.0),
+      ));
+    }
+    if (equippedRightWingman != 'none') {
+      wingmen.add(Wingman(
+        id: equippedRightWingman,
+        side: WingmanSide.right,
+        position: Offset(spaceship.positionX + 36.0, spaceship.positionY + 12.0),
+      ));
+    }
+
+    // Hazards
+    asteroids.clear();
+    blackHoles.clear();
+    asteroidSpawnTimer = 3.0; // spawn after 3 seconds
+    blackHoleSpawnTimer = 6.0; // spawn after 6 seconds
+
+    // Ultimate skill
+    ultimateCooldown = 0.0;
+    ultimateActiveDuration = 0.0;
   }
 
   void handleSpaceshipDrag(double deltaX, double deltaY) {
@@ -568,8 +642,146 @@ class GameManager extends ChangeNotifier {
       slowMotionTimer -= deltaTime;
     }
 
+    // Ultimate skill ticks
+    if (ultimateCooldown > 0) {
+      ultimateCooldown -= deltaTime;
+    }
+    if (ultimateActiveDuration > 0) {
+      ultimateActiveDuration -= deltaTime;
+    }
+
+    // Spawn and update Black Holes
+    blackHoleSpawnTimer -= deltaTime;
+    if (blackHoleSpawnTimer <= 0) {
+      double bhX = 60.0 + _random.nextDouble() * (screenWidth - 120.0);
+      double bhY = 80.0 + _random.nextDouble() * 120.0;
+      blackHoles.add(BlackHole(position: Offset(bhX, bhY)));
+      blackHoleSpawnTimer = 18.0 + _random.nextDouble() * 10.0;
+      floatingTexts.add(FloatingText(
+        text: "⚠️ GRAVITY DISTORTION ALERT ⚠️",
+        position: Offset(screenWidth / 2, screenHeight * 0.3),
+        color: Colors.cyanAccent,
+      ));
+      audio.playSFX('buff');
+    }
+
+    for (int i = blackHoles.length - 1; i >= 0; i--) {
+      blackHoles[i].update(deltaTime);
+      if (blackHoles[i].isExpired) {
+        blackHoles.removeAt(i);
+      }
+    }
+
+    // Spawn and update Asteroids
+    asteroidSpawnTimer -= deltaTime;
+    if (asteroidSpawnTimer <= 0) {
+      double astX = 20.0 + _random.nextDouble() * (screenWidth - 40.0);
+      double speedY = 40.0 + _random.nextDouble() * 50.0;
+      double speedX = (_random.nextDouble() - 0.5) * 40.0;
+      double size = 25.0 + _random.nextDouble() * 20.0;
+      int hp = (size / 8.0).ceil();
+      asteroids.add(Asteroid(
+        position: Offset(astX, -20.0),
+        velocity: Offset(speedX, speedY),
+        size: size,
+        health: hp,
+        rotationSpeed: (_random.nextDouble() - 0.5) * 4.0,
+      ));
+      asteroidSpawnTimer = 6.0 + _random.nextDouble() * 5.0;
+    }
+
+    for (int i = asteroids.length - 1; i >= 0; i--) {
+      Asteroid ast = asteroids[i];
+      for (var bh in blackHoles) {
+        ast.position += bh.getPullForce(ast.position, deltaTime);
+      }
+      ast.update(deltaTime);
+      if (ast.position.dy > screenHeight + 30.0 || ast.isDestroyed) {
+        asteroids.removeAt(i);
+      }
+    }
+
     // 2. Spaceship updates
+    for (var bh in blackHoles) {
+      Offset pull = bh.getPullForce(Offset(spaceship.positionX, spaceship.positionY), deltaTime);
+      spaceship.positionX += pull.dx;
+      spaceship.positionY += pull.dy;
+    }
+    spaceship.positionX = spaceship.positionX.clamp(20.0, screenWidth - 20.0);
+    spaceship.positionY = spaceship.positionY.clamp(screenHeight * 0.40, screenHeight - 40.0);
     spaceship.updatePowerUps(deltaTime);
+
+    // Continuous Ultimate Beam damage
+    if (ultimateActiveDuration > 0 && equippedUltimate == 'hyper_beam') {
+      Rect beamRect = Rect.fromLTRB(spaceship.positionX - 30.0, 0.0, spaceship.positionX + 30.0, spaceship.positionY);
+      for (var drone in drones) {
+        if (drone.isDestroyed) continue;
+        Rect droneRect = Rect.fromCenter(center: drone.position, width: drone.width, height: drone.height);
+        if (beamRect.overlaps(droneRect)) {
+          drone.health -= (15.0 * deltaTime).ceil();
+          if (_random.nextDouble() < 0.25) {
+            particleSystem.spawnExplosion(drone.position, Colors.purpleAccent, count: 2);
+          }
+          if (drone.health <= 0) {
+            drone.isDestroyed = true;
+            score += 100;
+            audio.playSFX('explosion');
+            particleSystem.spawnExplosion(drone.position, Colors.purpleAccent, count: 12);
+          }
+        }
+      }
+      for (var ast in asteroids) {
+        if (ast.isDestroyed) continue;
+        if (beamRect.overlaps(ast.rect)) {
+          ast.health -= (15.0 * deltaTime).ceil();
+          if (ast.health <= 0) {
+            ast.isDestroyed = true;
+            score += 50;
+            audio.playSFX('explosion');
+            particleSystem.spawnExplosion(ast.position, Colors.orangeAccent, count: 8);
+          }
+        }
+      }
+    }
+
+    // Update Wingmen companion drones
+    for (var wm in wingmen) {
+      wm.update(deltaTime, Offset(spaceship.positionX, spaceship.positionY));
+      if (wm.shootCooldown <= 0) {
+        if (wm.id == 'drone_laser') {
+          laserBullets.add(LaserBullet(
+            position: wm.position,
+            velocity: const Offset(0.0, -280.0),
+            isEnemy: false,
+            color: wm.color,
+            glowColor: wm.color.withOpacity(0.6),
+          ));
+          wm.shootCooldown = 0.5;
+        } 
+        else if (wm.id == 'drone_ice') {
+          laserBullets.add(LaserBullet(
+            position: wm.position,
+            velocity: const Offset(0.0, -220.0),
+            isEnemy: false,
+            color: wm.color,
+            glowColor: wm.color.withOpacity(0.6),
+            width: 6.0,
+            height: 14.0,
+          ));
+          wm.shootCooldown = 0.9;
+        }
+        else if (wm.id == 'drone_magnet') {
+          for (var coin in fallingCoins) {
+            double d = (coin.position - wm.position).distance;
+            if (d < 120.0) {
+              Offset pullDir = wm.position - coin.position;
+              coin.position += pullDir.normalized * 220.0 * deltaTime;
+            }
+          }
+          wm.shootCooldown = 0.1;
+        }
+      }
+    }
 
     // 3. Screen shake resolution
     if (shakeIntensity > 0) {
@@ -624,8 +836,12 @@ class GameManager extends ChangeNotifier {
 
     // 7. Update player bullets
     for (int i = laserBullets.length - 1; i >= 0; i--) {
-      laserBullets[i].update(deltaTime);
-      if (laserBullets[i].position.dy < -20.0 || laserBullets[i].isDestroyed) {
+      LaserBullet bullet = laserBullets[i];
+      for (var bh in blackHoles) {
+        bullet.position += bh.getPullForce(bullet.position, deltaTime);
+      }
+      bullet.update(deltaTime);
+      if (bullet.position.dy < -20.0 || bullet.isDestroyed) {
         laserBullets.removeAt(i);
       }
     }
@@ -640,20 +856,30 @@ class GameManager extends ChangeNotifier {
 
     // 8. Update enemy bullets
     for (int i = enemyLasers.length - 1; i >= 0; i--) {
-      enemyLasers[i].update(enemyDeltaTime);
-      if (enemyLasers[i].position.dy > screenHeight + 20.0 || enemyLasers[i].isDestroyed) {
+      LaserBullet laser = enemyLasers[i];
+      for (var bh in blackHoles) {
+        laser.position += bh.getPullForce(laser.position, enemyDeltaTime);
+      }
+      laser.update(enemyDeltaTime);
+      if (laser.position.dy > screenHeight + 20.0 || laser.isDestroyed) {
         enemyLasers.removeAt(i);
       }
     }
 
     // 9. Update falling items
     for (int i = fallingCoins.length - 1; i >= 0; i--) {
+      for (var bh in blackHoles) {
+        fallingCoins[i].position += bh.getPullForce(fallingCoins[i].position, deltaTime);
+      }
       fallingCoins[i].update(deltaTime, spaceshipPosition: Offset(spaceship.positionX, spaceship.positionY), magnetLevel: spaceship.magnetLevel);
       if (fallingCoins[i].position.dy > screenHeight + 20.0 || fallingCoins[i].isCollected) {
         fallingCoins.removeAt(i);
       }
     }
     for (int i = powerUps.length - 1; i >= 0; i--) {
+      for (var bh in blackHoles) {
+        powerUps[i].position += bh.getPullForce(powerUps[i].position, deltaTime);
+      }
       powerUps[i].update(deltaTime, spaceshipPosition: Offset(spaceship.positionX, spaceship.positionY), magnetLevel: spaceship.magnetLevel);
       if (powerUps[i].position.dy > screenHeight + 20.0 || powerUps[i].isCollected) {
         powerUps.removeAt(i);
@@ -663,7 +889,9 @@ class GameManager extends ChangeNotifier {
     // 10. Update Drones & Firing
     for (int i = drones.length - 1; i >= 0; i--) {
       DroneEnemy drone = drones[i];
-
+      for (var bh in blackHoles) {
+        drone.position += bh.getPullForce(drone.position, enemyDeltaTime);
+      }
       drone.update(enemyDeltaTime, screenWidth);
       
       // Auto-shoot for drones
@@ -957,6 +1185,11 @@ class GameManager extends ChangeNotifier {
           bullet.isDestroyed = true;
           int dmg = bullet.width > 10.0 ? 2 : 1;
           drone.health -= dmg;
+
+          // If hit by Ice Drone slowing bullet (light blue color)
+          if (bullet.color == const Color(0xFF00E5FF)) {
+            drone.slowTimer = 3.0;
+          }
           
           particleSystem.spawnExplosion(bullet.position, drone.color, count: 6);
           audio.playSFX('hit');
@@ -991,6 +1224,45 @@ class GameManager extends ChangeNotifier {
     }
     drones.removeWhere((d) => d.isDestroyed);
 
+    // 1c. Player Lasers vs Asteroids
+    for (var bullet in laserBullets) {
+      if (bullet.isDestroyed) continue;
+      for (var ast in asteroids) {
+        if (ast.isDestroyed) continue;
+        if (bullet.rect.overlaps(ast.rect)) {
+          bullet.isDestroyed = true;
+          int dmg = bullet.width > 10.0 ? 2 : 1;
+          ast.health -= dmg;
+          particleSystem.spawnExplosion(bullet.position, Colors.orangeAccent, count: 5);
+          audio.playSFX('hit');
+
+          if (ast.health <= 0) {
+            _destroyAsteroid(ast);
+          }
+          break;
+        }
+      }
+    }
+
+    // 1d. Missiles vs Asteroids
+    for (var missile in missiles) {
+      if (missile.isDestroyed) continue;
+      for (var ast in asteroids) {
+        if (ast.isDestroyed) continue;
+        if (missile.rect.overlaps(ast.rect)) {
+          missile.isDestroyed = true;
+          ast.health -= 3; // Missiles deal high damage to asteroids
+          particleSystem.spawnExplosion(missile.position, Colors.orangeAccent, count: 8);
+          audio.playSFX('hit');
+
+          if (ast.health <= 0) {
+            _destroyAsteroid(ast);
+          }
+          break;
+        }
+      }
+    }
+
     // 2. Enemy Lasers vs Player
     for (var laser in enemyLasers) {
       if (PhysicsEngine.checkBulletSpaceshipCollision(laser, spaceship)) {
@@ -1010,6 +1282,40 @@ class GameManager extends ChangeNotifier {
       }
     }
     drones.removeWhere((d) => d.isDestroyed);
+
+    // 3b. Asteroids vs Spaceship
+    for (var ast in asteroids) {
+      if (ast.isDestroyed) continue;
+      Rect shipRect = Rect.fromCenter(center: Offset(spaceship.positionX, spaceship.positionY), width: spaceship.width * 0.7, height: spaceship.height * 0.7);
+      if (shipRect.overlaps(ast.rect)) {
+        ast.isDestroyed = true;
+        particleSystem.spawnExplosion(ast.position, Colors.orangeAccent, count: 12);
+        _hitPlayer();
+        break;
+      }
+    }
+
+    // 3c. Asteroids vs Drones
+    for (var ast in asteroids) {
+      if (ast.isDestroyed) continue;
+      for (var drone in drones) {
+        if (drone.isDestroyed) continue;
+        Rect droneRect = Rect.fromCenter(center: drone.position, width: drone.width, height: drone.height);
+        if (droneRect.overlaps(ast.rect)) {
+          ast.isDestroyed = true;
+          drone.health -= 4; // High collision damage
+          particleSystem.spawnExplosion(ast.position, Colors.orangeAccent, count: 8);
+          
+          if (drone.health <= 0) {
+            drone.isDestroyed = true;
+            _destroyDrone(drone);
+          }
+          break;
+        }
+      }
+    }
+    drones.removeWhere((d) => d.isDestroyed);
+    asteroids.removeWhere((a) => a.isDestroyed);
 
     // 4. Collect Coins
     for (var coin in fallingCoins) {
@@ -1032,6 +1338,20 @@ class GameManager extends ChangeNotifier {
         powerUp.isCollected = true;
         _applyPowerUp(powerUp);
       }
+    }
+  }
+
+  void _destroyAsteroid(Asteroid ast) {
+    ast.isDestroyed = true;
+    score += 50;
+    audio.playSFX('win'); // explosion sfx
+    particleSystem.spawnExplosion(ast.position, Colors.orangeAccent, count: 12);
+
+    int coinsCount = 3 + _random.nextInt(3);
+    for (int c = 0; c < coinsCount; c++) {
+      fallingCoins.add(Coin(
+        position: ast.position + Offset((_random.nextDouble() - 0.5) * 15, (_random.nextDouble() - 0.5) * 15),
+      ));
     }
   }
 
@@ -1209,6 +1529,62 @@ class GameManager extends ChangeNotifier {
       maxUnlockedLevel++;
     }
     saveGameStats();
+    notifyListeners();
+  }
+
+  void triggerUltimate() {
+    if (state != GamePlayState.playing) return;
+    if (ultimateCooldown > 0) return;
+
+    if (equippedUltimate == 'hyper_beam') {
+      ultimateActiveDuration = 3.0; // Hyper beam duration: 3 seconds
+      ultimateCooldown = ultimateMaxCooldown;
+      audio.playSFX('laser');
+      floatingTexts.add(FloatingText(
+        text: "🔥 HYPER BEAM ACTIVATED 🔥",
+        position: Offset(screenWidth / 2, screenHeight * 0.45),
+        color: Colors.purpleAccent,
+        maxLife: 2.0,
+      ));
+      shakeIntensity = 6.0;
+    } 
+    else if (equippedUltimate == 'shield_burst') {
+      ultimateCooldown = ultimateMaxCooldown;
+      audio.playSFX('explosion');
+      floatingTexts.add(FloatingText(
+        text: "💥 NEON SHIELD BURST 💥",
+        position: Offset(screenWidth / 2, screenHeight * 0.45),
+        color: Colors.cyanAccent,
+        maxLife: 2.0,
+      ));
+      shakeIntensity = 10.0;
+
+      // 1. Vaporize all enemy bullets
+      enemyLasers.clear();
+
+      // 2. Deal massive damage to all drones on screen
+      for (var drone in drones) {
+        if (drone.isDestroyed) continue;
+        drone.health -= 6;
+        particleSystem.spawnExplosion(drone.position, Colors.cyanAccent, count: 6);
+        if (drone.health <= 0) {
+          drone.isDestroyed = true;
+          _destroyDrone(drone);
+        }
+      }
+      drones.removeWhere((d) => d.isDestroyed);
+
+      // 3. Deal massive damage to all asteroids on screen
+      for (var ast in asteroids) {
+        if (ast.isDestroyed) continue;
+        ast.health -= 6;
+        particleSystem.spawnExplosion(ast.position, Colors.orangeAccent, count: 6);
+        if (ast.health <= 0) {
+          _destroyAsteroid(ast);
+        }
+      }
+      asteroids.removeWhere((a) => a.isDestroyed);
+    }
     notifyListeners();
   }
 }
