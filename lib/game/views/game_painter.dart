@@ -730,33 +730,69 @@ class GamePainter extends CustomPainter {
 
   void _drawBlackHoles(Canvas canvas) {
     for (var bh in manager.blackHoles) {
-      double timeFactor = DateTime.now().millisecondsSinceEpoch * 0.005;
+      double timeFactor = DateTime.now().millisecondsSinceEpoch * 0.001; // Slower, smoother rotation time
 
-      // 1. Draw glowing space nebula behind black hole to make it super prominent
+      // 1. Draw glowing space nebula behind black hole (deep purple glow)
       final Paint gravityGlow = Paint()
-        ..color = const Color(0xFFBD00FF).withOpacity(0.3)
+        ..color = const Color(0xFFBD00FF).withOpacity(0.35)
         ..style = PaintingStyle.fill
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 20.0);
-      canvas.drawCircle(bh.position, bh.radius * 1.2, gravityGlow);
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 25.0);
+      canvas.drawCircle(bh.position, bh.radius * 1.3, gravityGlow);
 
       if (manager.spritesLoaded && manager.spriteImages.containsKey('black_hole')) {
         final ui.Image? img = manager.spriteImages['black_hole'];
         if (img != null) {
+          // Volumetric Layer 1: Outer accretion disk (faint, large, rotating clockwise)
           canvas.save();
           canvas.translate(bh.position.dx, bh.position.dy);
-          canvas.rotate(-timeFactor * 0.6); // rotate opposite for interesting parallax effect
+          canvas.rotate(timeFactor * 0.3);
           canvas.drawImageRect(
             img,
             Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()),
-            Rect.fromCenter(center: Offset.zero, width: bh.radius * 2.6, height: bh.radius * 2.6),
+            Rect.fromCenter(center: Offset.zero, width: bh.radius * 3.0, height: bh.radius * 3.0),
+            Paint()
+              ..blendMode = BlendMode.screen
+              ..color = Colors.white.withOpacity(0.35),
+          );
+          canvas.restore();
+
+          // Volumetric Layer 2: Main accretion disk (medium, rotating counter-clockwise, pulsating)
+          double pulse = 1.0 + 0.08 * math.sin(DateTime.now().millisecondsSinceEpoch * 0.003);
+          canvas.save();
+          canvas.translate(bh.position.dx, bh.position.dy);
+          canvas.rotate(-timeFactor * 0.85);
+          canvas.drawImageRect(
+            img,
+            Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()),
+            Rect.fromCenter(center: Offset.zero, width: bh.radius * 2.3 * pulse, height: bh.radius * 2.3 * pulse),
             Paint()..blendMode = BlendMode.screen,
           );
           canvas.restore();
+
+          // Volumetric Layer 3: Inner singularity edge (small, rotating clockwise rapidly)
+          canvas.save();
+          canvas.translate(bh.position.dx, bh.position.dy);
+          canvas.rotate(timeFactor * 1.4);
+          canvas.drawImageRect(
+            img,
+            Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()),
+            Rect.fromCenter(center: Offset.zero, width: bh.radius * 1.4, height: bh.radius * 1.4),
+            Paint()
+              ..blendMode = BlendMode.screen
+              ..color = Colors.white.withOpacity(0.8),
+          );
+          canvas.restore();
+
+          // Draw the absolute solid black singularity core in the very center
+          final Paint singularity = Paint()
+            ..color = Colors.black
+            ..style = PaintingStyle.fill;
+          canvas.drawCircle(bh.position, bh.radius * 0.28, singularity);
         }
       } else {
         // Fallback rotating layers
         for (int i = 0; i < 3; i++) {
-          double angle = timeFactor + i * (math.pi / 3.0);
+          double angle = (timeFactor * 5.0) + i * (math.pi / 3.0);
           double r = bh.radius * (0.6 + i * 0.3);
           
           canvas.save();
